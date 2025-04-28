@@ -1,0 +1,13 @@
+numpy
+torch
+torchaudio
+transformers
+librosa
+pandas
+wav2clip
+speechbrain
+s3prl
+plotly
+kaleido
+seaborn
+scikit-learn==1.5.1
