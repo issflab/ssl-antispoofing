@@ -23,7 +23,7 @@ class SSLModel(nn.Module):
         super(SSLModel, self).__init__()
         
         self.device = device
-        self.model = deep_learning(model_name='wavlm_large', device=device) # or 'wav2vec2_base', as you prefer
+        self.model = deep_learning(model_name='xls_r_300m', device=device) # or 'wav2vec2_base', as you prefer
         self.out_dim = 1024  # Default for hubert_base (for xlsr2_300m -> 1024, but hubert -> 768)
         return
 
@@ -37,14 +37,13 @@ class SSLModel(nn.Module):
         else:
             input_tmp = input_data
         emb = self.model.extract_feat_from_waveform(input_tmp, aggregate_emb=False, layer_number=0)
-        #print(emb.shape)
 
         emb = torch.tensor(emb, device=self.device).float()
 
         if emb.ndim == 2:
             # Currently (batch, feature) --> expand time dimension manually
             emb = emb.unsqueeze(1)  # (batch, 1, feature)
-        print(emb.shape)
+        print("embedding shape = {}".format(emb.shape))
         return emb
 
 

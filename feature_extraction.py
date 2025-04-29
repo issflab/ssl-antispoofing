@@ -111,14 +111,22 @@ class deep_learning:
             padded_waveform[i, :end] = wav[:end]
         wavs_len = torch.LongTensor([min(max_length, waveform_tensor.size(1)) for _ in range(waveform_tensor.size(0))])
 
+        # print(wavs_len)
+        print("waveform size = {}".fromat(padded_waveform.shape))
+
         with torch.no_grad():
             all_hs, all_hs_len = self.model(padded_waveform.to(self.device), wavs_len.to(self.device))
+            # print(all_hs)
+            # print(len(all_hs))
+            # print(len(all_hs_len))
+            # print(all_hs[0].shape)
 
         if aggregate_emb:
             embedding = self.aggregate_embeddings(all_hs)
             return embedding.cpu().numpy()
         else:
-            layer_embeddings = [layer.mean(dim=1).cpu().numpy() for layer in all_hs]
+            layer_embeddings = [layer.cpu().numpy() for layer in all_hs]
+            # print("layer_embedding shape = {}".format(layer_embeddings[0].shape))
             if layer_number is not None:
                 if layer_number < 0 or layer_number >= len(layer_embeddings):
                     raise ValueError(f"Invalid layer_number {layer_number}. Must be between 0 and {len(layer_embeddings)-1}.")
