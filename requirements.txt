@@ -11,3 +11,4 @@ plotly
 kaleido
 seaborn
 scikit-learn==1.5.1
+tensorboardX
