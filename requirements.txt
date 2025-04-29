@@ -1,6 +1,7 @@
 numpy
 torch
 torchaudio
+torchvision
 transformers
 librosa
 pandas
