@@ -112,7 +112,7 @@ class deep_learning:
         wavs_len = torch.LongTensor([min(max_length, waveform_tensor.size(1)) for _ in range(waveform_tensor.size(0))])
 
         # print(wavs_len)
-        print("waveform size = {}".fromat(padded_waveform.shape))
+        print("waveform size = {}".format(padded_waveform.shape))
 
         with torch.no_grad():
             all_hs, all_hs_len = self.model(padded_waveform.to(self.device), wavs_len.to(self.device))

@@ -7,7 +7,7 @@ from torch import nn
 from torch import Tensor
 from torch.utils.data import DataLoader
 import yaml
-from data_utils_SSL import genSpoof_list,Dataset_ASVspoof2019_train,Dataset_ASVspoof2021_eval
+from data_utils_SSL import genSpoof_list_multidata, Multi_Dataset_train
 from model import Model
 from tensorboardX import SummaryWriter
 from core_scripts.startup_config import set_random_seed
@@ -106,7 +106,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='SSL + AASIST System trained on multiple datasets')
 
     parser.add_argument('--database_path', type=str, default='/data/Data/', help='Change this to the base data directory which contain multiple datasets.')
-    parser.add_argument('--protocols_path', type=str, default='', help='Change this to the path which contain protocol files')
+    parser.add_argument('--protocols_path', type=str, default='/data/Data/protocols/', help='Change this to the path which contain protocol files')
 
     # Hyperparameters
     parser.add_argument('--batch_size', type=int, default=14)
@@ -194,16 +194,16 @@ if __name__ == '__main__':
     # ASVspoof 2025 = ASV5
     # FakeXpose = FX
     # In the Wild = ITW
-    # DFADD = dfadd
-    # MLAAD = mlaad
-    # SpoofCeleb = spoofceleb
-    # example, data_name = 'codec_FF_ASV19_mlaad'
-    data_name = ''
+    # DFADD = DFADD
+    # MLAAD = MLAAD
+    # SpoofCeleb = SpoofCeleb
+    # example, data_name = 'codec_FF_ASV19_MLAAD'
+    data_name = 'ASV19_CodecTTS_FF_MLAAD'
 
     if not os.path.exists(model_out_dir):
         os.mkdir(model_out_dir)
 
-    train_protocol_filename = ''
+    train_protocol_filename = 'safechallenge_protocol_file_no_laundering.txt'
     dev_protocol_filename = ''
     
     args = parser.parse_args()
@@ -224,7 +224,7 @@ if __name__ == '__main__':
         os.mkdir(model_save_path)
 
     #GPU device
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'                  
+    device = 'cuda:1' if torch.cuda.is_available() else 'cpu'                  
     print('Device: {}'.format(device))
     
     model = Model(args,device)
@@ -241,20 +241,20 @@ if __name__ == '__main__':
 
 
     #evaluation 
-    if args.eval:
-        file_eval = genSpoof_list( dir_meta =  os.path.join(args.protocols_path+'/ASVspoof2019.LA.cm.train.trn.txt'.format(prefix,prefix_2021)),is_train=False,is_eval=True)
-        #file_eval = genSpoof_list( dir_meta =  os.path.join(args.protocols_path+'fakeXpose_protocol.txt'.format(prefix,prefix_2021)),is_train=False,is_eval=True)
-        #file_eval = genSpoof_list( dir_meta =  os.path.join(args.protocols_path+'protocols/wild_meta.txt'.format(prefix,prefix_2021)),is_train=False,is_eval=True)
+    # if args.eval:
+    #     file_eval = genSpoof_list( dir_meta =  os.path.join(args.protocols_path+'/ASVspoof2019.LA.cm.train.trn.txt'.format(prefix,prefix_2021)),is_train=False,is_eval=True)
+    #     #file_eval = genSpoof_list( dir_meta =  os.path.join(args.protocols_path+'fakeXpose_protocol.txt'.format(prefix,prefix_2021)),is_train=False,is_eval=True)
+    #     #file_eval = genSpoof_list( dir_meta =  os.path.join(args.protocols_path+'protocols/wild_meta.txt'.format(prefix,prefix_2021)),is_train=False,is_eval=True)
 
-        print('no. of eval trials',len(file_eval))
-        #eval_set=Dataset_ASVspoof2021_eval(list_IDs = file_eval,base_dir = os.path.join(args.database_path+'ASVspoof2019_LA_eval/'.format(args.track)))
-        eval_set=Dataset_ASVspoof2021_eval(list_IDs = file_eval,base_dir = os.path.join(args.database_path+''.format(args.track)))
-        produce_evaluation_file(eval_set, model, device, args.eval_output)
-        sys.exit(0)
+    #     print('no. of eval trials',len(file_eval))
+    #     #eval_set=Dataset_ASVspoof2021_eval(list_IDs = file_eval,base_dir = os.path.join(args.database_path+'ASVspoof2019_LA_eval/'.format(args.track)))
+    #     eval_set=Dataset_ASVspoof2021_eval(list_IDs = file_eval,base_dir = os.path.join(args.database_path+''.format(args.track)))
+    #     produce_evaluation_file(eval_set, model, device, args.eval_output)
+    #     sys.exit(0)
 
     
     # define train dataloader
-    d_label_trn, file_train = genSpoof_list(dir_meta =  os.path.join(args.protocols_path, train_protocol_filename), is_train=True, is_eval=False)
+    d_label_trn, file_train = genSpoof_list_multidata(dir_meta =  os.path.join(args.protocols_path, train_protocol_filename), is_train=True, is_eval=False)
     
     print('no. of training trials',len(file_train))
     
@@ -265,14 +265,14 @@ if __name__ == '__main__':
     
     del train_set,d_label_trn
 
-    # define validation dataloader
-    d_label_dev,file_dev = genSpoof_list(dir_meta=os.path.join(args.protocols_path, dev_protocol_filename), is_train=False, is_eval=False)
+    # # define validation dataloader
+    # d_label_dev,file_dev = genSpoof_list_multidata(dir_meta=os.path.join(args.protocols_path, dev_protocol_filename), is_train=False, is_eval=False)
     
-    print('no. of validation trials',len(file_dev))
+    # print('no. of validation trials',len(file_dev))
     
-    dev_set = Multi_Dataset_train(args, list_IDs=file_dev, labels=d_label_dev, base_dir=args.database_path, algo=args.algo)
-    dev_loader = DataLoader(dev_set, batch_size=args.batch_size,num_workers=8, shuffle=False)
-    del dev_set,d_label_dev
+    # dev_set = Multi_Dataset_train(args, list_IDs=file_dev, labels=d_label_dev, base_dir=args.database_path, algo=args.algo)
+    # dev_loader = DataLoader(dev_set, batch_size=args.batch_size,num_workers=8, shuffle=False)
+    # del dev_set,d_label_dev
 
 
     # Training and validation 
