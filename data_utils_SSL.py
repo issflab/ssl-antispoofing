@@ -68,7 +68,7 @@ def pad(x, max_len=64600):
 			
 
 class Dataset_ASVspoof2019_train(Dataset):
-	def __init__(self,args,list_IDs, labels, base_dir,algo):
+	def __init__(self,args,list_IDs, labels, base_dir, algo):
             '''self.list_IDs	: list of strings (each string: utt key),
                self.labels      : dictionary (key: utt key, value: label integer)'''
                
