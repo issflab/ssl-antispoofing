@@ -6,12 +6,17 @@ import torch
 from torch import nn
 from torch import Tensor
 from torch.utils.data import DataLoader
+from torchcontrib.optim import SWA
 import yaml
 from data_utils_SSL import genSpoof_list_multidata, Multi_Dataset_train
 from model import Model
 from tensorboardX import SummaryWriter
 from core_scripts.startup_config import set_random_seed
 from config import cfg
+from sklearn.metrics import balanced_accuracy_score
+import json
+from tqdm import tqdm
+from utils import create_optimizer, seed_worker, set_seed, str_to_bool
 
 __author__ = "Hashim Ali"
 __email__ = "alhashim@umich.edu"
@@ -23,6 +28,10 @@ def evaluate_accuracy(dev_loader, model, device):
     model.eval()
     weight = torch.FloatTensor([0.1, 0.9]).to(device)
     criterion = nn.CrossEntropyLoss(weight=weight)
+
+    y_true = []
+    y_pred = []
+
     for batch_x, batch_y in dev_loader:
         
         batch_size = batch_x.size(0)
@@ -30,13 +39,21 @@ def evaluate_accuracy(dev_loader, model, device):
         batch_x = batch_x.to(device)
         batch_y = batch_y.view(-1).type(torch.int64).to(device)
         batch_out = model(batch_x)
+        batch_score = (batch_out[:, 1]).data.cpu().numpy().ravel()
+        batch_score = batch_score.tolist()
+
+        pred = "fake" if batch_score < 0 else "bonafide"
+        y_pred.extend(pred)
+        y_true.extend(batch_y.tolist())
         
         batch_loss = criterion(batch_out, batch_y)
         val_loss += (batch_loss.item() * batch_size)
         
     val_loss /= num_total
+
+    balanced_acc = balanced_accuracy_score(y_true, y_pred)
    
-    return val_loss
+    return val_loss, balanced_acc
 
 
 def produce_evaluation_file(dataset, model, device, save_path):
@@ -49,7 +66,7 @@ def produce_evaluation_file(dataset, model, device, save_path):
     key_list = []
     score_list = []
     
-    for batch_x,utt_id in data_loader:
+    for batch_x, utt_id, batch_y in data_loader:
         fname_list = []
         score_list = []  
         batch_size = batch_x.size(0)
@@ -57,17 +74,19 @@ def produce_evaluation_file(dataset, model, device, save_path):
         
         batch_out = model(batch_x)
         
-        batch_score = (batch_out[:, 1]  
-                       ).data.cpu().numpy().ravel() 
+        batch_score = (batch_out[:, 1]).data.cpu().numpy().ravel() 
+        batch_score = batch_score.tolist()
+        
         # add outputs
         fname_list.extend(utt_id)
-        score_list.extend(batch_score.tolist())
+        score_list.extend(batch_score)
         
         with open(save_path, 'a+') as fh:
             for f, cm in zip(fname_list,score_list):
                 fh.write('{} {}\n'.format(f, cm))
         fh.close()   
     print('Scores saved to {}'.format(save_path))
+
 
 def train_epoch(train_loader, model, lr,optim, device):
     running_loss = 0
@@ -80,7 +99,7 @@ def train_epoch(train_loader, model, lr,optim, device):
     weight = torch.FloatTensor([0.1, 0.9]).to(device)
     criterion = nn.CrossEntropyLoss(weight=weight)
     
-    for batch_x, batch_y in train_loader:
+    for batch_x, utt_id, batch_y in train_loader:
        
         batch_size = batch_x.size(0)
         num_total += batch_size
@@ -107,6 +126,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--database_path', type=str, default='/data/Data/', help='Change this to the base data directory which contain multiple datasets.')
     parser.add_argument('--protocols_path', type=str, default='/data/Data/protocols/', help='Change this to the path which contain protocol files')
+    parser.add_argument('--ssl_feature', type=str, default='wavlm_large', help='Change this to the path which contain protocol files')
 
     # Hyperparameters
     parser.add_argument('--batch_size', type=int, default=14)
@@ -203,10 +223,16 @@ if __name__ == '__main__':
     if not os.path.exists(model_out_dir):
         os.mkdir(model_out_dir)
 
-    train_protocol_filename = 'safechallenge_protocol_file_no_laundering.txt'
-    dev_protocol_filename = ''
+    train_protocol_filename = 'SAFE_Challenge_train_protocol.txt'
+    dev_protocol_filename = 'SAFE_Challenge_dev_protocol.txt'
     
     args = parser.parse_args()
+
+    with open("./AASIST.conf", "r") as f_json:
+        args_config = json.loads(f_json.read())
+
+    optim_config = args_config["optim_config"]
+    optim_config["epochs"] = args.num_epochs
 
     #make experiment reproducible
     set_random_seed(args.seed, args)
@@ -227,7 +253,7 @@ if __name__ == '__main__':
     device = 'cuda:1' if torch.cuda.is_available() else 'cpu'                  
     print('Device: {}'.format(device))
     
-    model = Model(args,device)
+    model = Model(args, device)
     nb_params = sum([param.view(-1).size()[0] for param in model.parameters()])
     model =model.to(device)
     print('nb_params:',nb_params)
@@ -265,29 +291,55 @@ if __name__ == '__main__':
     
     del train_set,d_label_trn
 
-    # # define validation dataloader
-    # d_label_dev,file_dev = genSpoof_list_multidata(dir_meta=os.path.join(args.protocols_path, dev_protocol_filename), is_train=False, is_eval=False)
+    # define validation dataloader
+    d_label_dev,file_dev = genSpoof_list_multidata(dir_meta=os.path.join(args.protocols_path, dev_protocol_filename), is_train=False, is_eval=False)
     
-    # print('no. of validation trials',len(file_dev))
+    print('no. of validation trials',len(file_dev))
     
-    # dev_set = Multi_Dataset_train(args, list_IDs=file_dev, labels=d_label_dev, base_dir=args.database_path, algo=args.algo)
-    # dev_loader = DataLoader(dev_set, batch_size=args.batch_size,num_workers=8, shuffle=False)
-    # del dev_set,d_label_dev
+    dev_set = Multi_Dataset_train(args, list_IDs=file_dev, labels=d_label_dev, base_dir=args.database_path, algo=args.algo)
+    dev_loader = DataLoader(dev_set, batch_size=args.batch_size,num_workers=8, shuffle=False)
+    del dev_set,d_label_dev
 
+    # get optimizer and scheduler
+    optim_config["steps_per_epoch"] = len(train_loader)
+    optimizer, scheduler = create_optimizer(model.parameters(), optim_config)
+    optimizer_swa = SWA(optimizer)
 
     # Training and validation 
     num_epochs = args.num_epochs
     writer = SummaryWriter('logs/{}'.format(model_tag))
+
+    best_val_acc = 0.5
     
-    for epoch in range(num_epochs):
+    for epoch in tqdm(range(num_epochs)):
         
         running_loss = train_epoch(train_loader, model, args.lr, optimizer, device)
-        val_loss = evaluate_accuracy(dev_loader, model, device)
+        
+        val_loss, val_balanced_acc = evaluate_accuracy(dev_loader, model, device)
         writer.add_scalar('val_loss', val_loss, epoch)
         writer.add_scalar('loss', running_loss, epoch)
-        print('\n{} - {} - {} '.format(epoch,
-                                                   running_loss,val_loss))
-        torch.save(model.state_dict(), os.path.join(
-            model_save_path, 'epoch_{}.pth'.format(epoch)))
+        writer.add_scalar('val_balanced_acc', val_balanced_acc, epoch)
+        print('\n{} - {} - {} - {} '.format(epoch, running_loss, val_loss, val_balanced_acc))
+        
+        if best_val_acc <= val_balanced_acc:
+            print("best model find at epoch", epoch)
+            best_val_acc = val_balanced_acc
+            torch.save(model.state_dict(), os.path.join(model_save_path, "epoch_{}_{:03.3f}.pth".format(epoch, val_balanced_acc)))
+
+            print("Saving epoch {} for swa".format(epoch))
+            optimizer_swa.update_swa()
+            n_swa_update += 1
+
+        writer.add_scalar("best val balanced accuracy", best_val_acc, epoch)
+
+
+    print("Start final evaluation")
+    epoch += 1
+    if n_swa_update > 0:
+        optimizer_swa.swap_swa_sgd()
+        optimizer_swa.bn_update(train_loader, model, device=device)
+
+    torch.save(model.state_dict(),
+               model_save_path / "swa.pth")
     
     

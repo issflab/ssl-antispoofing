@@ -65,7 +65,7 @@ def genSpoof_list_multidata(dir_meta, is_train=False, is_eval=False):
 
     if (is_train):
         for line in l_meta:
-             key,_,_,label = line.strip().split()
+             key,_,_,_,label = line.strip().split()
              
              file_list.append(key)
              d_meta[key] = 1 if label == 'bonafide' else 0
@@ -91,7 +91,7 @@ def genSpoof_list_multidata(dir_meta, is_train=False, is_eval=False):
 
     else:
         for line in l_meta:
-             key,_,_,label = line.strip().split()
+             key,_,_,_,label = line.strip().split()
              
              file_list.append(key)
              d_meta[key] = 1 if label == 'bonafide' else 0
@@ -165,7 +165,7 @@ class Multi_Dataset_train(Dataset):
         x_inp= Tensor(X_pad)
         target = self.labels[utt_id]
         
-        return x_inp, target
+        return x_inp, utt_id, target
             
             
 class Dataset_ASVspoof2021_eval(Dataset):

@@ -58,10 +58,22 @@ class TrainConfig:
     cudnn_benchmark: bool = False
 
 @dataclass
+class optim_config:
+    optimizer: str = "adam",
+    amsgrad: bool = False,
+    base_lr: float = 0.0001,
+    lr_min: float = 0.000005,
+    betas: float = [0.9, 0.999],
+    weight_decay: float = 0.0001,
+    scheduler: str = "cosine"
+
+
+@dataclass
 class Config:
     dataset: DatasetConfig = DatasetConfig()
     rawboost: RawBoostConfig = RawBoostConfig()
     features: FeatureConfig = FeatureConfig()
     train: TrainConfig = TrainConfig()
+    optim: optim_config = optim_config()
 
 cfg = Config()

@@ -19,11 +19,11 @@ __email__ = "tak@eurecom.fr"
 
 
 class SSLModel(nn.Module):
-    def __init__(self,device):
+    def __init__(self, device, args):
         super(SSLModel, self).__init__()
         
         self.device = device
-        self.model = deep_learning(model_name='xls_r_300m', device=device) # or 'wav2vec2_base', as you prefer
+        self.model = deep_learning(model_name=args.ssl_feature, device=device) # or 'wav2vec2_base', as you prefer
         self.out_dim = 1024  # Default for hubert_base (for xlsr2_300m -> 1024, but hubert -> 768)
         return
 
@@ -43,7 +43,7 @@ class SSLModel(nn.Module):
         if emb.ndim == 2:
             # Currently (batch, feature) --> expand time dimension manually
             emb = emb.unsqueeze(1)  # (batch, 1, feature)
-        print("embedding shape = {}".format(emb.shape))
+        # print("embedding shape = {}".format(emb.shape))
         return emb
 
 
@@ -430,7 +430,7 @@ class Residual_block(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, args,device):
+    def __init__(self, args, device):
         super().__init__()
         self.device = device
         
@@ -444,7 +444,7 @@ class Model(nn.Module):
         ####
         # create network wav2vec 2.0
         ####
-        self.ssl_model = SSLModel(self.device)
+        self.ssl_model = SSLModel(self.device, args)
         self.LL = nn.Linear(self.ssl_model.out_dim, 128)
 
         self.first_bn = nn.BatchNorm2d(num_features=1)
