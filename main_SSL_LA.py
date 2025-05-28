@@ -11,6 +11,8 @@ from data_utils_SSL import genSpoof_list,Dataset_ASVspoof2019_train,Dataset_ASVs
 from model import Model
 from tensorboardX import SummaryWriter
 from core_scripts.startup_config import set_random_seed
+from config import cfg
+
 
 
 __author__ = "Hemlata Tak"
@@ -105,7 +107,10 @@ def train_epoch(train_loader, model, lr,optim, device):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ASVspoof2021 baseline system')
     # Dataset
-    parser.add_argument('--database_path', type=str, default='/your/path/to/data/ASVspoof_database/LA/', help='Change this to user\'s full directory address of LA database (ASVspoof2019- for training & development (used as validation), ASVspoof2021 for evaluation scores). We assume that all three ASVspoof 2019 LA train, LA dev and ASVspoof2021 LA eval data folders are in the same database_path directory.')
+    parser.add_argument('--database_path', type=str, default='/data/Data/AsvSpoofData_2019/train/LA/', help='Change this to user\'s full directory address of LA database (ASVspoof2019- for training & development (used as validation), ASVspoof2021 for evaluation scores). We assume that all three ASVspoof 2019 LA train, LA dev and ASVspoof2021 LA eval data folders are in the same database_path directory.')
+    #parser.add_argument('--database_path', type=str, default='/home/adupa/SSL/', help='Change this to user\'s full directory address of LA database (ASVspoof2019- for training & development (used as validation), ASVspoof2021 for evaluation scores). We assume that all three ASVspoof 2019 LA train, LA dev and ASVspoof2021 LA eval data folders are in the same database_path directory.')
+    #parser.add_argument('--database_path', type=str, default='/data/ASVSpoof5/No_Laundering_train/', help='Change this to user\'s full directory address of LA database (ASVspoof2019- for training & development (used as validation), ASVspoof2021 for evaluation scores). We assume that all three ASVspoof 2019 LA train, LA dev and ASVspoof2021 LA eval data folders are in the same database_path directory.')
+
     '''
     % database_path/
     %   |- LA
@@ -116,8 +121,9 @@ if __name__ == '__main__':
  
  
     '''
-
-    parser.add_argument('--protocols_path', type=str, default='database/', help='Change with path to user\'s LA database protocols directory address')
+    #parser.add_argument('--protocols_path', type=str, default='/data/ASVSpoof5/protocols/', help='Change with path to user\'s LA database protocols directory address')
+    parser.add_argument('--protocols_path', type=str, default='/data/Data/AsvSpoofData_2019/train/LA/', help='Change with path to user\'s LA database protocols directory address')
+    #parser.add_argument('--protocols_path', type=str, default='/data/Data/ds_wild/', help='Change with path to user\'s LA database protocols directory address')
     '''
     % protocols_path/
     %   |- ASVspoof_LA_cm_protocols
@@ -206,8 +212,8 @@ if __name__ == '__main__':
     ##===================================================Rawboost data augmentation ======================================================================#
     
 
-    if not os.path.exists('models'):
-        os.mkdir('models')
+    if not os.path.exists('/data/ssl_anti_spoofing/models'):
+        os.mkdir('/data/ssl_anti_spoofing/models')
     args = parser.parse_args()
  
     #make experiment reproducible
@@ -227,7 +233,7 @@ if __name__ == '__main__':
         track, args.loss, args.num_epochs, args.batch_size, args.lr)
     if args.comment:
         model_tag = model_tag + '_{}'.format(args.comment)
-    model_save_path = os.path.join('models', model_tag)
+    model_save_path = os.path.join('/data/ssl_anti_spoofing/models', model_tag)
 
     #set model save directory
     if not os.path.exists(model_save_path):
@@ -252,9 +258,13 @@ if __name__ == '__main__':
 
     #evaluation 
     if args.eval:
-        file_eval = genSpoof_list( dir_meta =  os.path.join(args.protocols_path+'{}_cm_protocols/{}.cm.eval.trl.txt'.format(prefix,prefix_2021)),is_train=False,is_eval=True)
+        file_eval = genSpoof_list( dir_meta =  os.path.join(args.protocols_path+'/ASVspoof2019.LA.cm.train.trn.txt'.format(prefix,prefix_2021)),is_train=False,is_eval=True)
+        #file_eval = genSpoof_list( dir_meta =  os.path.join(args.protocols_path+'fakeXpose_protocol.txt'.format(prefix,prefix_2021)),is_train=False,is_eval=True)
+        #file_eval = genSpoof_list( dir_meta =  os.path.join(args.protocols_path+'protocols/wild_meta.txt'.format(prefix,prefix_2021)),is_train=False,is_eval=True)
+
         print('no. of eval trials',len(file_eval))
-        eval_set=Dataset_ASVspoof2021_eval(list_IDs = file_eval,base_dir = os.path.join(args.database_path+'ASVspoof2021_{}_eval/'.format(args.track)))
+        #eval_set=Dataset_ASVspoof2021_eval(list_IDs = file_eval,base_dir = os.path.join(args.database_path+'ASVspoof2019_LA_eval/'.format(args.track)))
+        eval_set=Dataset_ASVspoof2021_eval(list_IDs = file_eval,base_dir = os.path.join(args.database_path+''.format(args.track)))
         produce_evaluation_file(eval_set, model, device, args.eval_output)
         sys.exit(0)
    
@@ -262,11 +272,11 @@ if __name__ == '__main__':
 
      
     # define train dataloader
-    d_label_trn,file_train = genSpoof_list( dir_meta =  os.path.join(args.protocols_path+'{}_cm_protocols/{}.cm.train.trn.txt'.format(prefix,prefix_2019)),is_train=True,is_eval=False)
+    d_label_trn,file_train = genSpoof_list( dir_meta =  os.path.join(args.protocols_path+'ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.train.trn.txt'.format(prefix,prefix_2019)),is_train=True,is_eval=False)
     
     print('no. of training trials',len(file_train))
     
-    train_set=Dataset_ASVspoof2019_train(args,list_IDs = file_train,labels = d_label_trn,base_dir = os.path.join(args.database_path+'{}_{}_train/'.format(prefix_2019.split('.')[0],args.track)),algo=args.algo)
+    train_set=Dataset_ASVspoof2019_train(args,list_IDs = file_train,labels = d_label_trn,base_dir = os.path.join(args.database_path+'ASVspoof2019_LA_train/'.format(prefix_2019.split('.')[0],args.track)),algo=args.algo)
     
     train_loader = DataLoader(train_set, batch_size=args.batch_size,num_workers=8, shuffle=True,drop_last = True)
     
@@ -275,7 +285,7 @@ if __name__ == '__main__':
 
     # define validation dataloader
 
-    d_label_dev,file_dev = genSpoof_list( dir_meta =  os.path.join(args.protocols_path+'{}_cm_protocols/{}.cm.dev.trl.txt'.format(prefix,prefix_2019)),is_train=False,is_eval=False)
+    d_label_dev,file_dev = genSpoof_list( dir_meta =  os.path.join(args.protocols_path+'ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.dev.trl.txt'.format(prefix,prefix_2019)),is_train=False,is_eval=False)
     
     print('no. of validation trials',len(file_dev))
     

@@ -1,7 +1,6 @@
 numpy
 torch
 torchaudio
-torchvision
 transformers
 librosa
 pandas
@@ -12,3 +11,6 @@ plotly
 kaleido
 seaborn
 scikit-learn==1.5.1
+tensorboardX
+torchcontrib
+tqdm

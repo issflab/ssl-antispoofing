@@ -6,7 +6,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
-import fairseq
+#import fairseq
+from feature_extraction import deep_learning
 
 
 ___author__ = "Hemlata Tak"
@@ -18,35 +19,43 @@ __email__ = "tak@eurecom.fr"
 
 
 class SSLModel(nn.Module):
-    def __init__(self,device):
+    def __init__(self, device, args):
         super(SSLModel, self).__init__()
+
+        self.device = device
+        self.layer_num = 0
+
+        self.model = deep_learning(model_name=args.ssl_feature, device=device)
+
+        out_dim_dict = {'wavlm_large': 1024, 'mae_ast_frame':768, 'npc_960hr':512}
+        self.out_dim = out_dim_dict[args.ssl_feature]
         
-        cp_path = 'xlsr2_300m.pt'   # Change the pre-trained XLSR model path. 
-        model, cfg, task = fairseq.checkpoint_utils.load_model_ensemble_and_task([cp_path])
-        self.model = model[0]
-        self.device=device
-        self.out_dim = 1024
-        return
+        # self.device = device
+        # self.model = deep_learning(model_name=args.ssl_feature, device=device) # or 'wav2vec2_base', as you prefer
+        # # wavlm_large -> 1024, mae_ast_frame -> 768
+        # self.out_dim = 1024  # Default for hubert_base (for xlsr2_300m -> 1024, but hubert -> 768)
+        # return
 
     def extract_feat(self, input_data):
-        
-        # put the model to GPU if it not there
-        if next(self.model.parameters()).device != input_data.device \
-           or next(self.model.parameters()).dtype != input_data.dtype:
-            self.model.to(input_data.device, dtype=input_data.dtype)
-            self.model.train()
+        """
+        Extract SSL feature embeddings from raw waveforms without aggregating over time.
+        """
+        if input_data.ndim == 3:
+            input_tmp = input_data[:, :, 0]  
+            # remove channel dim
+        else:
+            input_tmp = input_data
+        emb = self.model.extract_feat_from_waveform(input_tmp, aggregate_emb=False, layer_number=self.layer_num)
 
-        
-        if True:
-            # input should be in shape (batch, length)
-            if input_data.ndim == 3:
-                input_tmp = input_data[:, :, 0]
-            else:
-                input_tmp = input_data
-                
-            # [batch, length, dim]
-            emb = self.model(input_tmp, mask=False, features_only=True)['x']
+        emb = torch.tensor(emb, device=self.device).float()
+
+        if emb.ndim == 2:
+            # Currently (batch, feature) --> expand time dimension manually
+            emb = emb.unsqueeze(1)  # (batch, 1, feature)
+        # print("embedding shape = {}".format(emb.shape))
         return emb
+
+
 
 
 #---------AASIST back-end------------------------#
@@ -430,7 +439,7 @@ class Residual_block(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, args,device):
+    def __init__(self, args, device):
         super().__init__()
         self.device = device
         
@@ -444,7 +453,7 @@ class Model(nn.Module):
         ####
         # create network wav2vec 2.0
         ####
-        self.ssl_model = SSLModel(self.device)
+        self.ssl_model = SSLModel(self.device, args)
         self.LL = nn.Linear(self.ssl_model.out_dim, 128)
 
         self.first_bn = nn.BatchNorm2d(num_features=1)
@@ -511,7 +520,9 @@ class Model(nn.Module):
         # post-processing on front-end features
         x = x.transpose(1, 2)   #(bs,feat_out_dim,frame_number)
         x = x.unsqueeze(dim=1) # add channel 
-        x = F.max_pool2d(x, (3, 3))
+        if x.shape[-1] >= 3 and x.shape[-2] >= 3:
+            x = F.max_pool2d(x, (3, 3))
+
         x = self.first_bn(x)
         x = self.selu(x)
 
@@ -525,7 +536,10 @@ class Model(nn.Module):
         #------------SA for spectral feature-------------#
         w1 = F.softmax(w,dim=-1)
         m = torch.sum(x * w1, dim=-1)
-        e_S = m.transpose(1, 2) + self.pos_S 
+        if self.pos_S.size(1) != m.transpose(1, 2).size(1):
+            self.pos_S = nn.Parameter(torch.randn(1, m.transpose(1, 2).size(1), self.pos_S.size(2)).to(self.pos_S.device))
+
+        e_S = m.transpose(1, 2) + self.pos_S
         
         # graph module layer
         gat_S = self.GAT_layer_S(e_S)

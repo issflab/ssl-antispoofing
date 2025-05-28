@@ -15,7 +15,7 @@ class deep_learning:
     def __init__(self, model_name, device='cpu'):
 
         self.SAMPLE_RATE = 16000
-        self.MAX_SECONDS = 60
+        self.MAX_SECONDS = 12
         self.model = S3PRLUpstream(model_name).to(device)
         self.featurizer = Featurizer(self.model).to(device)
         self.device = device
@@ -96,3 +96,40 @@ class deep_learning:
         embeddings_list = [layer.mean(dim=1) for layer in all_hs]
         final_embedding = sum(embeddings_list) / len(embeddings_list)
         return final_embedding
+
+    def extract_feat_from_waveform(self, waveform_tensor, aggregate_emb=False, layer_number=0):
+        waveform_tensor = waveform_tensor / waveform_tensor.abs().max()
+
+        if waveform_tensor.ndimension() == 1:
+            waveform_tensor = waveform_tensor.unsqueeze(0)
+
+        max_length = int(self.SAMPLE_RATE * self.MAX_SECONDS)
+        padded_waveform = torch.zeros(waveform_tensor.size(0), max_length)
+
+        for i, wav in enumerate(waveform_tensor):
+            end = min(max_length, wav.size(0))
+            padded_waveform[i, :end] = wav[:end]
+        wavs_len = torch.LongTensor([min(max_length, waveform_tensor.size(1)) for _ in range(waveform_tensor.size(0))])
+
+        # print(wavs_len)
+        # print("waveform size = {}".format(padded_waveform.shape))
+
+        with torch.no_grad():
+            all_hs, all_hs_len = self.model(padded_waveform.to(self.device), wavs_len.to(self.device))
+            # print(all_hs)
+            # print(len(all_hs))
+            # print(len(all_hs_len))
+            # print(all_hs[0].shape)
+
+        if aggregate_emb:
+            embedding = self.aggregate_embeddings(all_hs)
+            return embedding.cpu().numpy()
+        else:
+            layer_embeddings = [layer.cpu().numpy() for layer in all_hs]
+            # print("layer_embedding shape = {}".format(layer_embeddings[0].shape))
+            if layer_number is not None:
+                if layer_number < 0 or layer_number >= len(layer_embeddings):
+                    raise ValueError(f"Invalid layer_number {layer_number}. Must be between 0 and {len(layer_embeddings)-1}.")
+                return layer_embeddings[layer_number]
+            else:
+                return np.stack(layer_embeddings, axis=0)
