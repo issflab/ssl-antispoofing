@@ -32,7 +32,7 @@ def evaluate_accuracy(dev_loader, model, device):
     y_true = []
     y_pred = []
 
-    for batch_x, batch_y in dev_loader:
+    for batch_x, utt_id, batch_y in dev_loader:
         
         batch_size = batch_x.size(0)
         num_total += batch_size
@@ -41,10 +41,11 @@ def evaluate_accuracy(dev_loader, model, device):
         batch_out = model(batch_x)
         batch_score = (batch_out[:, 1]).data.cpu().numpy().ravel()
         batch_score = batch_score.tolist()
-
-        pred = "fake" if batch_score < 0 else "bonafide"
+        
+        pred = ["fake" if bs < 0 else "bonafide" for bs in batch_score]
+        keys = ["fake" if by == 0 else "bonafide" for by in batch_y.tolist()]
         y_pred.extend(pred)
-        y_true.extend(batch_y.tolist())
+        y_true.extend(keys)
         
         batch_loss = criterion(batch_out, batch_y)
         val_loss += (batch_loss.item() * batch_size)
@@ -99,7 +100,7 @@ def train_epoch(train_loader, model, lr,optim, device):
     weight = torch.FloatTensor([0.1, 0.9]).to(device)
     criterion = nn.CrossEntropyLoss(weight=weight)
     
-    for batch_x, utt_id, batch_y in train_loader:
+    for batch_x, utt_id, batch_y in tqdm(train_loader):
        
         batch_size = batch_x.size(0)
         num_total += batch_size
@@ -130,7 +131,7 @@ if __name__ == '__main__':
 
     # Hyperparameters
     parser.add_argument('--batch_size', type=int, default=14)
-    parser.add_argument('--num_epochs', type=int, default=100)
+    parser.add_argument('--num_epochs', type=int, default=50)
     parser.add_argument('--lr', type=float, default=0.000001)
     parser.add_argument('--weight_decay', type=float, default=0.0001)
     parser.add_argument('--loss', type=str, default='weighted_CCE')
@@ -218,13 +219,21 @@ if __name__ == '__main__':
     # MLAAD = MLAAD
     # SpoofCeleb = SpoofCeleb
     # example, data_name = 'codec_FF_ASV19_MLAAD'
-    data_name = 'ASV19_CodecTTS_FF_MLAAD'
+    # data_name = 'ASV19_CodecTTS_FF_MLAAD'
+    # data_name = 'mlaad_spoofceleb_FF'
+    data_name = 'Codec_FF_ITW_Pod_mlaad_spoofceleb'
 
     if not os.path.exists(model_out_dir):
         os.mkdir(model_out_dir)
 
-    train_protocol_filename = 'SAFE_Challenge_train_protocol.txt'
-    dev_protocol_filename = 'SAFE_Challenge_dev_protocol.txt'
+    # train_protocol_filename = 'SAFE_challenge_train_latest_protocol.txt'
+    # dev_protocol_filename = 'SAFE_challenge_dev_latest_protocol.txt'
+
+    # train_protocol_filename = 'SAFE_challenge_train_latest_protocol.txt'
+    # dev_protocol_filename = 'SAFE_challenge_dev_latest_protocol.txt'
+
+    train_protocol_filename = 'SAFE_Challenge_train_protocol_Codec_FF_ITW_Pod_mlaad_spoofceleb.txt'
+    dev_protocol_filename = 'SAFE_Challenge_dev_protocol_Codec_FF_ITW_Pod_mlaad_spoofceleb.txt'
     
     args = parser.parse_args()
 
@@ -238,7 +247,7 @@ if __name__ == '__main__':
     set_random_seed(args.seed, args)
 
     #define model saving path
-    model_tag = 'model_{}_{}_{}_{}_{}'.format(args.loss, args.num_epochs, args.batch_size, args.lr, data_name)
+    model_tag = 'model_{}_{}_{}_{}_{}_{}'.format(args.loss, args.num_epochs, args.batch_size, args.lr, data_name, args.ssl_feature)
     
     if args.comment:
         model_tag = model_tag + '_{}'.format(args.comment)
@@ -310,8 +319,9 @@ if __name__ == '__main__':
     writer = SummaryWriter('logs/{}'.format(model_tag))
 
     best_val_acc = 0.5
+    n_swa_update = 0
     
-    for epoch in tqdm(range(num_epochs)):
+    for epoch in range(num_epochs):
         
         running_loss = train_epoch(train_loader, model, args.lr, optimizer, device)
         
@@ -339,7 +349,6 @@ if __name__ == '__main__':
         optimizer_swa.swap_swa_sgd()
         optimizer_swa.bn_update(train_loader, model, device=device)
 
-    torch.save(model.state_dict(),
-               model_save_path / "swa.pth")
+    torch.save(model.state_dict(), os.path.join(model_save_path, "swa.pth"))
     
     

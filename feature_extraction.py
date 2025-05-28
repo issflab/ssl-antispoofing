@@ -15,7 +15,7 @@ class deep_learning:
     def __init__(self, model_name, device='cpu'):
 
         self.SAMPLE_RATE = 16000
-        self.MAX_SECONDS = 60
+        self.MAX_SECONDS = 12
         self.model = S3PRLUpstream(model_name).to(device)
         self.featurizer = Featurizer(self.model).to(device)
         self.device = device

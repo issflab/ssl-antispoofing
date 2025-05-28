@@ -14,7 +14,7 @@ ___author__ = "Hemlata Tak"
 __email__ = "tak@eurecom.fr"
 
 
-def genSpoof_list( dir_meta,is_train=False,is_eval=False):
+def genSpoof_list(dir_meta,is_train=False,is_eval=False):
     
     d_meta = {}
     file_list=[]
@@ -65,10 +65,12 @@ def genSpoof_list_multidata(dir_meta, is_train=False, is_eval=False):
 
     if (is_train):
         for line in l_meta:
-             key,_,_,_,label = line.strip().split()
-             
-             file_list.append(key)
-             d_meta[key] = 1 if label == 'bonafide' else 0
+            # print(line)
+            key,_,_,_,label = line.strip().split()
+            
+            file_list.append(key)
+            d_meta[key] = 1 if label == 'bonafide' else 0
+        
         return d_meta,file_list
         """
         elif is_eval:
@@ -150,7 +152,8 @@ class Multi_Dataset_train(Dataset):
         self.base_dir = base_dir
         self.algo=algo
         self.args=args
-        self.cut=64600 # take ~4 sec audio (64600 samples)
+        # self.cut=64600 # take ~4 sec audio (64600 samples)
+        self.cut=192000 # take 12 sec audio (64600 samples)
             
     def __len__(self):
         return len(self.list_IDs)

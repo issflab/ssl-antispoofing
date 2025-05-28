@@ -21,11 +21,20 @@ __email__ = "tak@eurecom.fr"
 class SSLModel(nn.Module):
     def __init__(self, device, args):
         super(SSLModel, self).__init__()
-        
+
         self.device = device
-        self.model = deep_learning(model_name=args.ssl_feature, device=device) # or 'wav2vec2_base', as you prefer
-        self.out_dim = 1024  # Default for hubert_base (for xlsr2_300m -> 1024, but hubert -> 768)
-        return
+        self.layer_num = 0
+
+        self.model = deep_learning(model_name=args.ssl_feature, device=device)
+
+        out_dim_dict = {'wavlm_large': 1024, 'mae_ast_frame':768, 'npc_960hr':512}
+        self.out_dim = out_dim_dict[args.ssl_feature]
+        
+        # self.device = device
+        # self.model = deep_learning(model_name=args.ssl_feature, device=device) # or 'wav2vec2_base', as you prefer
+        # # wavlm_large -> 1024, mae_ast_frame -> 768
+        # self.out_dim = 1024  # Default for hubert_base (for xlsr2_300m -> 1024, but hubert -> 768)
+        # return
 
     def extract_feat(self, input_data):
         """
@@ -36,7 +45,7 @@ class SSLModel(nn.Module):
             # remove channel dim
         else:
             input_tmp = input_data
-        emb = self.model.extract_feat_from_waveform(input_tmp, aggregate_emb=False, layer_number=0)
+        emb = self.model.extract_feat_from_waveform(input_tmp, aggregate_emb=False, layer_number=self.layer_num)
 
         emb = torch.tensor(emb, device=self.device).float()
 
