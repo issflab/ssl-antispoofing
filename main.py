@@ -9,7 +9,8 @@ from torch.utils.data import DataLoader
 from torchcontrib.optim import SWA
 import yaml
 from data_utils_SSL import genSpoof_list_multidata, Multi_Dataset_train
-from model import Model
+from aasist_model import Model as aasist_model
+from sls_model import Model as sls_model
 from tensorboardX import SummaryWriter
 from core_scripts.startup_config import set_random_seed
 from config import cfg
@@ -262,7 +263,12 @@ if __name__ == '__main__':
     device = 'cuda:1' if torch.cuda.is_available() else 'cpu'                  
     print('Device: {}'.format(device))
     
-    model = Model(args, device)
+    # aasist model
+    model = aasist_model(args, device)
+
+    # sls model
+    # model = sls_model(args, device)
+
     nb_params = sum([param.view(-1).size()[0] for param in model.parameters()])
     model =model.to(device)
     print('nb_params:',nb_params)
