@@ -19,6 +19,11 @@ class deep_learning:
         self.model = S3PRLUpstream(model_name).to(device)
         self.featurizer = Featurizer(self.model).to(device)
         self.device = device
+        with torch.no_grad():
+            dummy_waveform = torch.randn(1, self.SAMPLE_RATE * self.MAX_SECONDS).to(self.device)
+            dummy_len = torch.LongTensor([dummy_waveform.shape[1]]).to(self.device)
+            all_hs, _ = self.model(dummy_waveform, dummy_len)
+            self.out_dim = all_hs[0].shape[-1]
 
     def extract_features(self, file_path, aggregate_emb=False, layer_number=0):
         """

@@ -18,6 +18,8 @@ from sklearn.metrics import balanced_accuracy_score
 import json
 from tqdm import tqdm
 from utils import create_optimizer, seed_worker, set_seed, str_to_bool
+from xlsrmamba_model import Model as XLSRMambaModel
+
 
 __author__ = "Hashim Ali"
 __email__ = "alhashim@umich.edu"
@@ -204,10 +206,14 @@ if __name__ == '__main__':
                     help='Minimum SNR value for coloured additive noise.[defaul=10]')
     parser.add_argument('--SNRmax', type=int, default=40, 
                     help='Maximum SNR value for coloured additive noise.[defaul=40]')
+
+    parser.add_argument('--emb_size', type=int, default=256, help='Size of projection layer')
+    parser.add_argument('--num_encoders', type=int, default=12, help='Number of encoder layers in mamba')
+
     
     ##===================================================Rawboost data augmentation ======================================================================#
 
-    model_out_dir = '/data/ssl_anti_spoofing/multi_datasets_models'   # directory to save the models in
+    model_out_dir = './'   # directory to save the models in
     
     # name this variable based on datasets being used to train the models
     # CodecFake = codec
@@ -264,10 +270,14 @@ if __name__ == '__main__':
     print('Device: {}'.format(device))
     
     # aasist model
-    model = aasist_model(args, device)
+    #model = aasist_model(args, device)
 
     # sls model
     # model = sls_model(args, device)
+
+    # XLSR mamba model
+    model = XLSRMambaModel(args, device)
+
 
     nb_params = sum([param.view(-1).size()[0] for param in model.parameters()])
     model =model.to(device)
