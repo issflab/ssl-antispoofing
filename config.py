@@ -1,79 +1,54 @@
 from dataclasses import dataclass
-from typing import Optional
-try:
-    from typing import Literal
-except ImportError:
-    Literal = None
-
-@dataclass
-class DatasetConfig:
-    type: Literal['ASVspoof2019', 'ASVspoof2021', 'InTheWild'] = 'ASVspoof2021'
-    track: Literal['LA', 'PA', 'DF'] = 'LA'
-    database_path: str = '/path/to/data'
-    protocols_path: str = '/path/to/protocols'
-    sample_rate: int = 16000
-    max_length: int = 64600
-
-@dataclass
-class RawBoostConfig:
-    algo: int = 0
-    nBands: int = 5
-    minF: int = 20
-    maxF: int = 8000
-    minBW: int = 100
-    maxBW: int = 1000
-    minCoeff: int = 10
-    maxCoeff: int = 100
-    minG: int = -20
-    maxG: int = 5
-    minBiasLinNonLin: int = 5
-    maxBiasLinNonLin: int = 20
-    N_f: int = 2
-    P: int = 90
-    g_sd: float = 0.2
-    SNRmin: int = 10
-    SNRmax: int = 30
-
-@dataclass
-class FeatureConfig:
-    use_ssl: bool = True
-    pretrained_model_path: str = '/path/to/xlsr2_300m.pt'
-    ssl_output_dim: int = 1024
-
-@dataclass
-class TrainConfig:
-    batch_size: int = 14
-    num_epochs: int = 100
-    lr: float = 1e-6
-    weight_decay: float = 1e-4
-    loss: str = 'weighted_CCE'
-    seed: int = 1234
-    model_path: Optional[str] = None
-    comment: Optional[str] = None
-    eval_output: Optional[str] = 'output/score.txt'
-    eval: bool = False
-    is_eval: bool = False
-    eval_part: int = 0
-    cudnn_deterministic: bool = True
-    cudnn_benchmark: bool = False
-
-@dataclass
-class optim_config:
-    optimizer: str = "adam",
-    amsgrad: bool = False,
-    base_lr: float = 0.0001,
-    lr_min: float = 0.000005,
-    betas: float = [0.9, 0.999],
-    weight_decay: float = 0.0001,
-    scheduler: str = "cosine"
-
+from typing import Optional, Literal
+import os
 
 @dataclass
 class Config:
-    dataset: DatasetConfig = DatasetConfig()
-    rawboost: RawBoostConfig = RawBoostConfig()
-    features: FeatureConfig = FeatureConfig()
-    train: TrainConfig = TrainConfig()
-    optim: optim_config = optim_config()
+    #'aasist', 'sls', or 'xlsrmamba'
+    model_arch: Literal['aasist', 'sls', 'xlsrmamba'] = 'xlsrmamba'
+
+    # Dataset name
+    dataset: str = 'Codec_FF_ITW_Pod_mlaad_spoofceleb'
+
+    database_path: str = '/data/Data'   # root that contains e.g. spoofceleb/flac/...
+    protocols_path: str = '/data/Data'  
+
+    train_protocol: str = 'SAFE_Challenge_train_protocol_v3.txt'
+    dev_protocol: str = 'SAFE_Challenge_dev_protocol_V3.txt'
+
+    mode: Literal['train', 'eval'] = 'train'
+
+    save_dir: str = './output/models'
+    model_name: str = 'run1'
+
+    pretrained_checkpoint: Optional[str] = None
+
+    @property
+    def train_protocol_path(self) -> str:
+        return os.path.join(self.protocols_path, self.train_protocol)
+
+    @property
+    def dev_protocol_path(self) -> str:
+        return os.path.join(self.protocols_path, self.dev_protocol)
+
+    @property
+    def model_save_path(self) -> str:
+        return os.path.join(self.save_dir, self.model_name)
+
+    def prepare_dirs(self):
+        os.makedirs(self.save_dir, exist_ok=True)
+        os.makedirs(self.model_save_path, exist_ok=True)
+
 
 cfg = Config()
+
+cfg.model_arch = os.getenv('SSL_MODEL_ARCH', cfg.model_arch)
+cfg.database_path = os.getenv('SSL_DATABASE_PATH', cfg.database_path)
+cfg.protocols_path = os.getenv('SSL_PROTOCOLS_PATH', cfg.protocols_path)
+cfg.mode = os.getenv('SSL_MODE', cfg.mode)
+cfg.model_name = os.getenv('SSL_MODEL_NAME', cfg.model_name)
+env_ckpt = os.getenv('SSL_PRETRAINED_CHECKPOINT')
+if env_ckpt:
+    cfg.pretrained_checkpoint = env_ckpt
+
+cfg.prepare_dirs()

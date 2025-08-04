@@ -161,8 +161,17 @@ class Multi_Dataset_train(Dataset):
     def __getitem__(self, index):
         
         utt_id = self.list_IDs[index]
-        X,fs = librosa.load(self.base_dir + utt_id, sr=16000) 
+        #X,fs = librosa.load(self.base_dir + utt_id, sr=16000) 
         #X,fs = librosa.load(self.base_dir+'release_in_the_wild/'+utt_id+'.flac', sr=16000) 
+        full_path = os.path.join(self.base_dir, utt_id)
+        if not os.path.isfile(full_path):
+            raise FileNotFoundError(f"Audio file missing: {full_path}")
+        try:
+            X, fs = librosa.load(full_path, sr=16000)
+        except Exception as e:
+            print(f"Warning: failed to load {full_path}: {e}")
+            raise
+        
         Y=process_Rawboost_feature(X,fs,self.args,self.algo)
         X_pad= pad(Y,self.cut)
         x_inp= Tensor(X_pad)
