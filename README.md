@@ -46,17 +46,17 @@ save_dir: output/models     # where to save models
 * **wavlm\_large**
 
   ```bash
-  python main2.py --batch_size 14 --num_epochs 50 --lr 1e-6 --weight_decay 1e-4 --algo 5 --ssl_feature wavlm_large --seed 1234 --emb_size 256 --num_encoders 12
+  python main2.py --batch_size 14 --num_epochs 50 --lr 1e-6 --weight_decay 1e-4 --ssl_feature wavlm_large --seed 1234 --emb_size 256 --num_encoders 12
   ```
 * **mae\_ast\_frame**
 
   ```bash
-  python main2.py --batch_size 14 --num_epochs 50 --lr 1e-6 --weight_decay 1e-4 --algo 5 --ssl_feature mae_ast_frame --seed 1234 --emb_size 256 --num_encoders 12
+  python main2.py --batch_size 14 --num_epochs 50 --lr 1e-6 --weight_decay 1e-4 --ssl_feature mae_ast_frame --seed 1234 --emb_size 256 --num_encoders 12
   ```
 * **npc\_960hr**
 
   ```bash
-  python main2.py --batch_size 14 --num_epochs 50 --lr 1e-6 --weight_decay 1e-4 --algo 5 --ssl_feature npc_960hr --seed 1234 --emb_size 256 --num_encoders 12
+  python main2.py --batch_size 14 --num_epochs 50 --lr 1e-6 --weight_decay 1e-4 --ssl_feature npc_960hr --seed 1234 --emb_size 256 --num_encoders 12
   ```
 
 ### 2. Training
