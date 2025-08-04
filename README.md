@@ -6,8 +6,8 @@
 
 This repository implements a self‑supervised learning (SSL) based anti‑spoofing pipeline for audio. It has two main stages:
 
-* **Backend (SSL feature extractors):** wavlm\_large, mae\_ast\_frame, npc\_960hr
-* **Frontend (Classifier models):** AASIST, SLS, XLSR‑Mamba
+* **Frontend (SSL feature extractors):** wavlm\_large, mae\_ast\_frame, npc\_960hr
+* **Backend (Classifier models):** AASIST, SLS, XLSR‑Mamba
 
 ---
 
