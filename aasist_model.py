@@ -27,8 +27,9 @@ class SSLModel(nn.Module):
 
         self.model = deep_learning(model_name=args.ssl_feature, device=device)
 
-        out_dim_dict = {'wavlm_large': 1024, 'mae_ast_frame':768, 'npc_960hr':512}
-        self.out_dim = out_dim_dict[args.ssl_feature]
+        #out_dim_dict = {'wavlm_large': 1024, 'mae_ast_frame':768, 'npc_960hr':512}
+        #self.out_dim = out_dim_dict[args.ssl_feature]
+        self.out_dim = self.model.out_dim
         
         # self.device = device
         # self.model = deep_learning(model_name=args.ssl_feature, device=device) # or 'wav2vec2_base', as you prefer
