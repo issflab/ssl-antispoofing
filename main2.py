@@ -8,7 +8,7 @@ from tensorboardX import SummaryWriter
 from sklearn.metrics import balanced_accuracy_score
 from tqdm import tqdm
 import json
-
+from s3prl import hub
 from data_utils_SSL import genSpoof_list_multidata, Multi_Dataset_train
 from aasist_model import Model as aasist_model
 from sls_model import Model as sls_model
@@ -114,6 +114,8 @@ if __name__ == '__main__':
     parser.add_argument('--g_sd', type=int, default=2, help='gain parameter > 0')
     parser.add_argument('--SNRmin', type=int, default=10, help='Minimum SNR value for coloured additive noise')
     parser.add_argument('--SNRmax', type=int, default=40, help='Maximum SNR value for coloured additive noise')
+    UPSTREAM_CHOICES = [attr for attr in dir(hub) if not attr.startswith("_")]
+    parser.add_argument("--h", type=str, choices=UPSTREAM_CHOICES, default=UPSTREAM_CHOICES[0], help=("Which upstream to load. Valid options are:\n  " + "\n  ".join(UPSTREAM_CHOICES)))
 
 
 
