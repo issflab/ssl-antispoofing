@@ -5,7 +5,7 @@ import os
 @dataclass
 class Config:
     #'aasist', 'sls', or 'xlsrmamba'
-    model_arch: Literal['aasist', 'sls', 'xlsrmamba'] = 'xlsrmamba'
+    model_arch: Literal['aasist', 'sls', 'xlsrmamba'] = 'aasist'
 
     # Dataset name
     dataset: str = 'Codec_FF_ITW_Pod_mlaad_spoofceleb'
