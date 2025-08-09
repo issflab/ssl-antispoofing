@@ -92,7 +92,7 @@ def produce_evaluation_file(dataset, model, device, save_path):
     print('Scores saved to {}'.format(save_path))
 
 
-def train_epoch(train_loader, model, lr,optim, device):
+def train_epoch(train_loader, model, lr,optimizer, device):
     running_loss = 0
     
     num_total = 0.0
