@@ -16,6 +16,7 @@ from xlsrmamba_model import Model as XLSRMambaModel
 from core_scripts.startup_config import set_random_seed
 from config import cfg
 from utils import create_optimizer
+from evaluation import calculate_EER
 
 __author__ = "Hashim Ali"
 __email__ = "alhashim@umich.edu"
@@ -51,6 +52,52 @@ def evaluate_accuracy(dev_loader, model, device):
     avg_loss = val_loss / num_total if num_total > 0 else 0.0
     balanced_acc = balanced_accuracy_score(y_true, y_pred) if len(y_true) > 0 else 0.0
     return avg_loss, balanced_acc
+
+
+def produce_evaluation(data_loader, model, device, save_path, trial_path):
+    model.eval()
+
+    val_loss = 0.0
+    num_total = 0.0
+    weight = torch.FloatTensor([0.1, 0.9]).to(device)
+    criterion = nn.CrossEntropyLoss(weight=weight)
+    
+    fname_list = []
+    key_list = []
+    score_list = []
+
+    trial_lines = []
+
+    with open(trial_path, "r") as f_trl:
+        trial_lines.extend(f_trl.readlines())
+    
+    for batch_x, utt_id, batch_y in tqdm(data_loader):
+        batch_size = batch_x.size(0)
+        num_total += batch_size
+        
+        batch_x = batch_x.to(device)
+        batch_y = batch_y.view(-1).type(torch.int64).to(device)
+        
+        batch_out = model(batch_x)
+        batch_score = (batch_out[:, 1]).data.cpu().numpy().ravel() 
+        batch_score = batch_score.tolist()
+
+        batch_loss = criterion(batch_out, batch_y)
+        val_loss += (batch_loss.item() * batch_size)
+        
+        # Writing score to file
+        fname_list.extend(utt_id)
+        score_list.extend(batch_score)
+        key_list.extend(batch_y)
+    
+    print(len(fname_list), len(key_list), len(score_list), len(trial_lines))
+    assert len(trial_lines) == len(fname_list) == len(score_list)
+    with open(save_path, "w") as fh:
+        for fn, sco, trl in zip(fname_list, score_list, trial_lines):
+            _, utt_id, _, src, key = trl.strip().split(' ')
+
+            assert fn == utt_id
+            fh.write("{} {} {} {}\n".format(utt_id, src, key, sco))
 
 
 def train_epoch(train_loader, model, optimizer, device):
@@ -141,7 +188,9 @@ if __name__ == '__main__':
     os.makedirs(model_save_path, exist_ok=True)
 
     # build a consistent tag for tensorboard / logging
-    model_tag = cfg.model_name
+    # model_tag = cfg.model_name
+    model_tag = 'model_{}_{}_{}_{}_{}_{}'.format(args.loss, args.num_epochs, args.batch_size, cfg.model_arch, cfg.dataset, args.ssl_feature)
+    
     if args.comment:
         model_tag = f"{model_tag}_{args.comment}"
     writer = SummaryWriter(f'logs/{model_tag}')
@@ -208,31 +257,66 @@ if __name__ == '__main__':
     optimizer, scheduler = create_optimizer(model.parameters(), optim_config)
     optimizer_swa = SWA(optimizer)
 
+
+    # make directory for metric logging
+    metric_path = os.path.join(model_tag, "metrics")
+    os.makedirs(metric_path, exist_ok=True)
+
+    os.path.join(metric_path, "dev_score.txt")
     # train vs eval
     if cfg.mode == 'train':
-        best_bal_acc = 0.0
+
+        best_val_eer = 1
         n_swa_update = 0
 
         for epoch in range(args.num_epochs):
             train_loss = train_epoch(train_loader, model, optimizer, device)
-            val_loss, val_balanced_acc = evaluate_accuracy(dev_loader, model, device)
+
+            val_loss = produce_evaluation(dev_loader, model, device, os.path.join(metric_path, "dev_score.txt"), dev_proto)
+
+            dev_eer = calculate_EER(cm_scores_file=os.path.join(metric_path, "dev_score.txt"))
 
             writer.add_scalar('train_loss', train_loss, epoch)
             writer.add_scalar('val_loss', val_loss, epoch)
-            writer.add_scalar('val_balanced_acc', val_balanced_acc, epoch)
-            print(f"Epoch {epoch} - train_loss: {train_loss:.4f} - val_loss: {val_loss:.4f} - val_balanced_acc: {val_balanced_acc:.4f}")
+            writer.add_scalar('val_eer', dev_eer, epoch)
+            print(f"Epoch {epoch} - train_loss: {train_loss:.4f} - val_loss: {val_loss:.4f} - val_eer: {dev_eer:.4f}")
 
-            if val_balanced_acc >= best_bal_acc:
+            if dev_eer < best_val_eer:
                 print(f"Best model updated at epoch {epoch}")
-                best_bal_acc = val_balanced_acc
+                best_val_eer = dev_eer
                 torch.save(model.state_dict(),
-                           os.path.join(model_save_path, f"epoch_{epoch}_{val_balanced_acc:0.3f}.pth"))
-                torch.save(model.state_dict(), os.path.join(model_save_path, 'best.pth'))
+                           os.path.join(model_save_path, "epoch_{}_{:03.3f}.pth".format(epoch, dev_eer)))
+                
                 # SWA update on improvement (as per prior logic)
+                print("Saving epoch {} for swa".format(epoch))
                 optimizer_swa.update_swa()
                 n_swa_update += 1
 
-            writer.add_scalar("best_val_balanced_acc", best_bal_acc, epoch)
+            writer.add_scalar("best_val_eer", best_val_eer, epoch)
+
+        # best_bal_acc = 0.0
+        # n_swa_update = 0
+
+        # for epoch in range(args.num_epochs):
+        #     train_loss = train_epoch(train_loader, model, optimizer, device)
+        #     val_loss, val_balanced_acc = evaluate_accuracy(dev_loader, model, device)
+
+        #     writer.add_scalar('train_loss', train_loss, epoch)
+        #     writer.add_scalar('val_loss', val_loss, epoch)
+        #     writer.add_scalar('val_balanced_acc', val_balanced_acc, epoch)
+        #     print(f"Epoch {epoch} - train_loss: {train_loss:.4f} - val_loss: {val_loss:.4f} - val_balanced_acc: {val_balanced_acc:.4f}")
+
+        #     if val_balanced_acc >= best_bal_acc:
+        #         print(f"Best model updated at epoch {epoch}")
+        #         best_bal_acc = val_balanced_acc
+        #         torch.save(model.state_dict(),
+        #                    os.path.join(model_save_path, f"epoch_{epoch}_{val_balanced_acc:0.3f}.pth"))
+        #         torch.save(model.state_dict(), os.path.join(model_save_path, 'best.pth'))
+        #         # SWA update on improvement (as per prior logic)
+        #         optimizer_swa.update_swa()
+        #         n_swa_update += 1
+
+        #     writer.add_scalar("best_val_balanced_acc", best_bal_acc, epoch)
 
         print("Finalizing SWA (if any updates occurred)")
         if n_swa_update > 0:
