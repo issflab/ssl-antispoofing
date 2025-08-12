@@ -1,3 +1,51 @@
+"""
+config.py
+---------
+Configuration management for ASD_SUPERB.
+
+This file defines the Config dataclass, which centralizes all configuration options
+for model architecture, dataset selection, file paths, training/evaluation modes, and device settings.
+
+Environment variables can override default values for flexible deployment.
+
+Classes:
+    Config: Main configuration class with properties for protocol paths and model saving.
+
+Usage:
+    Import cfg from this file to access configuration throughout the project.
+    Example:
+        from config import cfg
+        print(cfg.model_arch)
+
+Configuration Options:
+    model_arch: Backend Model architecture to use ('aasist', 'sls', 'linear_head').
+    dataset: Name of the dataset(s) used for training. Used for naming conventions.
+    database_path: Root directory containing audio data.
+    protocols_path: Directory containing protocol files.
+    train_protocol: Filename for training protocol.
+    dev_protocol: Filename for development protocol.
+    mode: 'train' or 'eval' to set the running mode.
+    save_dir: Directory to save models and logs.
+    model_name: Name/tag for the current model run.
+    cuda_device: CUDA device string (e.g., 'cuda:0').
+    pretrained_checkpoint: Optional path to a pretrained model checkpoint.
+
+Methods:
+    train_protocol_path: Returns full path to training protocol file.
+    dev_protocol_path: Returns full path to development protocol file.
+    model_save_path: Returns directory path for saving model checkpoints.
+    prepare_dirs: Creates necessary directories for saving outputs.
+
+Environment Variables:
+    SSL_MODEL_ARCH
+    SSL_DATABASE_PATH
+    SSL_PROTOCOLS_PATH
+    SSL_MODE
+    SSL_MODEL_NAME
+    CUDA_DEVICE
+    SSL_PRETRAINED_CHECKPOINT
+"""
+
 from dataclasses import dataclass
 from typing import Optional, Literal
 import os
@@ -20,6 +68,8 @@ class Config:
 
     save_dir: str = './output/models'
     model_name: str = 'run1'
+
+    cuda_device: str = 'cuda:1'
 
     pretrained_checkpoint: Optional[str] = None
 
