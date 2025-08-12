@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
-from feature_extraction import deep_learning
+from s3prl.nn import S3PRLUpstream, Featurizer
 
 
 
@@ -178,7 +178,7 @@ class Model(nn.Module):
         self.device = device
 
         # self.ssl_extractor = deep_learning("hubert", device=self.device)
-        self.ssl_model = SSLModel(self.device, args)
+        self.ssl_model = SSLModel(24, device=self.device, args=self.args)
 
         self.first_bn = nn.BatchNorm2d(num_features=1)
         self.selu = nn.SELU(inplace=True)
