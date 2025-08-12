@@ -31,9 +31,9 @@ This repository implements a self‑supervised learning (SSL) based anti‑spoof
 
 ### 1. Configure
 
-**YAML file (`config.yaml`):**
+**File (`config.py`):**
 
-```yaml
+```.py
 ssl_feature: wavlm_large    # choose: wavlm_large | mae_ast_frame | npc_960hr
 model_arch: aasist          # choose: aasist | sls | xlsrmamba
 mode: train                 # train or eval
@@ -41,7 +41,7 @@ save_dir: output/models     # where to save models
 # other settings: batch size, learning rate, etc.
 ```
 
-**Or via CLI flags (model architecture is set in `config.yaml`):**
+**Or via CLI flags (model architecture is set in `config.py`):**
 
 * **wavlm\_large**
 
@@ -62,16 +62,13 @@ save_dir: output/models     # where to save models
 ### 2. Training
 
 ```bash
-python main2.py --config config.yaml
+python main2.py
 ```
 
 ### 3. Evaluation
 
 ```bash
-python main2.py \
-  --config config.yaml \
-  --mode eval \
-  --ckpt output/models/your_model.pth
+python main2.py  --ckpt output/models/your_model.pth
 ```
 
 ---
@@ -80,11 +77,11 @@ python main2.py \
 
 * **Change SSL feature extractor:**
 
-  * In `config.yaml`: set `ssl_feature` to `wavlm_large`, `mae_ast_frame`, or `npc_960hr`.
+  * In `config.py`: set `ssl_feature` to `wavlm_large`, `mae_ast_frame`, or `npc_960hr`.
   * Or add `--ssl_feature <name>` on the CLI.
 * **Change classifier model:**
 
-  * In `config.yaml`: set `model_arch` to `aasist`, `sls`, or `xlsrmamba`.
+  * In `config.py`: set `model_arch` to `aasist`, `sls`, or `xlsrmamba`.
   * Or add `--model_arch <name>` on the CLI.
 
 ---
