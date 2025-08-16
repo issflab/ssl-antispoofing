@@ -12,7 +12,7 @@ from s3prl import hub
 from data_utils_SSL import genSpoof_list_multidata, Multi_Dataset_train
 from aasist_model import Model as aasist_model
 from sls_model import Model as sls_model
-from xlsrmamba_model import Model as XLSRMambaModel
+# from xlsrmamba_model import Model as XLSRMambaModel
 from core_scripts.startup_config import set_random_seed
 from config import cfg
 from utils import create_optimizer
@@ -90,14 +90,21 @@ def produce_evaluation(data_loader, model, device, save_path, trial_path):
         score_list.extend(batch_score)
         key_list.extend(batch_y)
     
-    print(len(fname_list), len(key_list), len(score_list), len(trial_lines))
+    # print(len(fname_list), len(key_list), len(score_list), len(trial_lines))
     assert len(trial_lines) == len(fname_list) == len(score_list)
     with open(save_path, "w") as fh:
         for fn, sco, trl in zip(fname_list, score_list, trial_lines):
-            _, utt_id, _, src, key = trl.strip().split(' ')
+            utt_id, _, _, src, key = trl.strip().split(' ')
 
             assert fn == utt_id
             fh.write("{} {} {} {}\n".format(utt_id, src, key, sco))
+
+    
+    val_loss /= num_total
+
+    print('Scores saved to {}'.format(save_path))
+
+    return val_loss
 
 
 def train_epoch(train_loader, model, optimizer, device):
@@ -130,7 +137,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Refactored SSL-AntiSpoofing entry point using cfg')
     parser.add_argument('--database_path', type=str, default=None)
     parser.add_argument('--protocols_path', type=str, default=None)
-    parser.add_argument('--ssl_feature', type=str, default='wavlm_large')
+    parser.add_argument('--ssl_model', type=str, default='wavlm_large')
     parser.add_argument('--batch_size', type=int, default=14)
     parser.add_argument('--num_epochs', type=int, default=50)
     parser.add_argument('--lr', type=float, default=1e-6)
@@ -183,21 +190,21 @@ if __name__ == '__main__':
     # reproducibility
     set_random_seed(args.seed, args)
 
-    # prepare save path
-    model_save_path = os.path.join(cfg.save_dir, cfg.model_name)
-    os.makedirs(model_save_path, exist_ok=True)
-
-    # build a consistent tag for tensorboard / logging
-    # model_tag = cfg.model_name
-    model_tag = 'model_{}_{}_{}_{}_{}_{}'.format(args.loss, args.num_epochs, args.batch_size, cfg.model_arch, cfg.dataset, args.ssl_feature)
+    #define model saving path
+    model_tag = 'model_{}_{}_{}_{}_{}_{}'.format(args.loss, args.num_epochs, args.batch_size, cfg.model_arch, cfg.dataset, args.ssl_model)
     
     if args.comment:
-        model_tag = f"{model_tag}_{args.comment}"
+        model_tag = model_tag + '_{}'.format(args.comment)
+    
     writer = SummaryWriter(f'logs/{model_tag}')
 
-    # device
-    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    print(f'Device: {device}')
+    # prepare save path
+    model_save_path = os.path.join(cfg.save_dir, model_tag)
+    os.makedirs(model_save_path, exist_ok=True)
+
+    #GPU device
+    device = cfg.cuda_device if torch.cuda.is_available() else 'cpu'                  
+    print('Device: {}'.format(device))
 
     # instantiate model based on config
     if cfg.model_arch == 'aasist':
@@ -225,14 +232,14 @@ if __name__ == '__main__':
     d_label_trn, file_train = genSpoof_list_multidata(train_proto, is_train=True)
     d_label_dev, file_dev = genSpoof_list_multidata(dev_proto, is_train=False)
 
-    print("Train protocol:", getattr(cfg, "train_protocol_path", cfg.train_protocol))
-    print("Dev protocol:", getattr(cfg, "dev_protocol_path", cfg.dev_protocol))
-    print("Database base path:", cfg.database_path)
-    for tag, file_list in (("TRAIN", file_train), ("DEV", file_dev)):
-        print(f"Sample {tag} utt_ids (first 3):", file_list[:3])
-        for utt in file_list[:3]:
-            full = os.path.join(cfg.database_path, utt)
-            print(f"  [{tag}] {utt} -> {full} exists: {os.path.isfile(full)}")
+    # print("Train protocol:", getattr(cfg, "train_protocol_path", cfg.train_protocol))
+    # print("Dev protocol:", getattr(cfg, "dev_protocol_path", cfg.dev_protocol))
+    # print("Database base path:", cfg.database_path)
+    # for tag, file_list in (("TRAIN", file_train), ("DEV", file_dev)):
+    #     print(f"Sample {tag} utt_ids (first 3):", file_list[:3])
+    #     for utt in file_list[:3]:
+    #         full = os.path.join(cfg.database_path, utt)
+    #         print(f"  [{tag}] {utt} -> {full} exists: {os.path.isfile(full)}")
 
     train_set = Multi_Dataset_train(args, list_IDs=file_train, labels=d_label_trn,
                                     base_dir=cfg.database_path, algo=args.algo)
@@ -266,7 +273,7 @@ if __name__ == '__main__':
     # train vs eval
     if cfg.mode == 'train':
 
-        best_val_eer = 1
+        best_val_eer = 10
         n_swa_update = 0
 
         for epoch in range(args.num_epochs):

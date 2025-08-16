@@ -58,18 +58,18 @@ class Config:
     # Dataset name
     dataset: str = 'Codec_FF_ITW_Pod_mlaad_spoofceleb'
 
-    database_path: str = '/data/Data'   # root that contains e.g. spoofceleb/flac/...
-    protocols_path: str = '/data/Data'  
+    database_path: str = '/data/Data/'   # root that contains e.g. spoofceleb/flac/...
+    protocols_path: str = '/data/Data/protocols/'  
 
-    train_protocol: str = 'SAFE_Challenge_train_protocol_v3.txt'
-    dev_protocol: str = 'SAFE_Challenge_dev_protocol_V3.txt'
+    train_protocol: str = 'SAFE_Challenge_only_english_train_protocol.txt'
+    dev_protocol: str = 'Safe_Challenge_only_english_dev_protocol.txt'
 
     mode: Literal['train', 'eval'] = 'train'
 
-    save_dir: str = './output/models'
+    save_dir: str = '/data/ssl_anti_spoofing/eng_dataset_models/'
     model_name: str = 'run1'
 
-    cuda_device: str = 'cuda:1'
+    cuda_device: str = 'cuda:0'
 
     pretrained_checkpoint: Optional[str] = None
 

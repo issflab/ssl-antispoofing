@@ -75,6 +75,7 @@ class Model(nn.Module):
     def __init__(self, args, device):
         super().__init__()
         self.device = device
+        self.args = args
         self.ssl_model = SSLModel(24, device=self.device, args=self.args)
         self.linear_proj = nn.Linear(self.ssl_model.out_dim, args.emb_size)
 
@@ -91,12 +92,15 @@ class Model(nn.Module):
         )
 
     def forward(self, x):
-        x_feat = torch.tensor(
-    self.ssl_model.extract_feat_from_waveform(x, aggregate_emb=False),
-    dtype=torch.float32,
-    device=self.device
-)
-        x_feat = self.linear_proj(x_feat)
+        
+        # x_feat = torch.tensor(
+        #     self.ssl_model.extract_feat_from_waveform(x, aggregate_emb=False),
+        #     dtype=torch.float32,
+        #     device=self.device)
+
+        x_ssl_feat, features_len = self.ssl_model.extract_feat_featurizer(x)
+        
+        x_feat = self.linear_proj(x_ssl_feat)
         x_feat = x_feat.unsqueeze(1)
         x_feat = self.first_bn(x_feat)
         x_feat = self.selu(x_feat)

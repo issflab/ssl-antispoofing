@@ -176,6 +176,7 @@ class Model(nn.Module):
     def __init__(self, args, device):
         super().__init__()
         self.device = device
+        self.args = args
 
         # self.ssl_extractor = deep_learning("hubert", device=self.device)
         self.ssl_model = SSLModel(24, device=self.device, args=self.args)
@@ -214,7 +215,7 @@ class Model(nn.Module):
         # Step 2: Feature extraction
         # layer_embeddings = self.ssl_extractor.extract_feat_from_waveform(x, aggregate_emb=False)
         # x_ssl_feat, layerResult = self.ssl_model.extract_feat(x.squeeze(-1)) #layerresult = [(x,z),24个] x(201,1,1024) z(1,201,201)
-        layerResult = self.ssl_model.extract_feat(x.squeeze(-1)) #layerresult = [(x,z),24个] x(201,1,1024) z(1,201,201)
+        layerResult = self.ssl_model.extract_feat(x) #layerresult = [(x,z),24个] x(201,1,1024) z(1,201,201)
 
         # Step 3: Attention over layers
         y0, fullfeature = getAttenF(layerResult)
