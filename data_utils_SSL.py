@@ -8,10 +8,57 @@ from torch.utils.data import Dataset
 from RawBoost import ISD_additive_noise,LnL_convolutive_noise,SSI_additive_noise,normWav
 from random import randrange
 import random
+from typing import Optional
+
 
 
 ___author__ = "Hemlata Tak"
 __email__ = "tak@eurecom.fr"
+
+
+# --- NEW: generic, config-driven protocol parser (keeps your old helpers intact) ---
+def _normalize_delim(d):
+    """
+    None -> split on any whitespace
+    " "  -> treat like None (any whitespace), more robust than one literal space
+    ","  -> split on comma
+    any other string -> used as-is in str.split(d)
+    """
+    if d is None:
+        return None
+    if isinstance(d, str) and d.strip() == "":
+        return None
+    if d == " ":
+        return None
+    return d
+
+def parse_protocol(path, *, delimiter: Optional[str], key_col: int, label_col: int, has_label: bool = True):
+    """
+    Generic protocol reader driven by config.
+    Returns:
+        if has_label: (labels_dict, key_list)
+        else: key_list
+    """
+    delim = _normalize_delim(delimiter)
+    keys = []
+    labels = {}
+
+    with open(path, 'r') as f:
+        for raw in f:
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split(delim) if delim is not None else line.split()
+            if key_col >= len(parts) or (has_label and label_col >= len(parts)):
+                raise ValueError(f"Line has too few columns for configured indices: `{line}`")
+            key = parts[key_col]
+            if has_label:
+                lab = parts[label_col]
+                labels[key] = 1 if lab == 'bonafide' else 0
+            keys.append(key)
+
+    return (labels, keys) if has_label else keys
+# -----------------------------------------------------------------------------------
 
 
 def genSpoof_list(dir_meta,is_train=False,is_eval=False):
