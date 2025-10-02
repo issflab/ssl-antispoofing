@@ -17,6 +17,7 @@ from core_scripts.startup_config import set_random_seed
 from config import cfg
 from utils import create_optimizer
 from evaluation import calculate_EER
+import time
 
 __author__ = "Hashim Ali"
 __email__ = "alhashim@umich.edu"
@@ -120,7 +121,10 @@ def train_epoch(train_loader, model, optimizer, device):
 
         batch_x = batch_x.to(device)
         batch_y = batch_y.view(-1).type(torch.int64).to(device)
+        start = time.time()
         batch_out = model(batch_x)
+        end = time.time()
+        print(end - start)
 
         batch_loss = criterion(batch_out, batch_y)
         running_loss += batch_loss.item() * batch_size
@@ -273,10 +277,10 @@ if __name__ == '__main__':
     # train vs eval
     if cfg.mode == 'train':
 
-        best_val_eer = 10
+        best_val_eer = 3.383
         n_swa_update = 0
 
-        for epoch in range(args.num_epochs):
+        for epoch in range(27, args.num_epochs):
             train_loss = train_epoch(train_loader, model, optimizer, device)
 
             val_loss = produce_evaluation(dev_loader, model, device, os.path.join(metric_path, "dev_score.txt"), dev_proto)

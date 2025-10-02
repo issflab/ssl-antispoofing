@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from torch import Tensor
 #import fairseq
 from s3prl.nn import S3PRLUpstream, Featurizer
+import time
 
 
 ___author__ = "Hemlata Tak"
@@ -584,6 +585,12 @@ class Model(nn.Module):
 
     def forward(self, x):
         #-------pre-trained Wav2vec model fine tunning ------------------------##
+        # start = time.time()
+        # x_ssl_feat, features_len = self.ssl_model.extract_feat_featurizer(x)
+        # x = self.LL(x_ssl_feat) #(bs,frame_number,feat_out_dim)
+        # end = time.time()
+        # print(end - start)
+
         x_ssl_feat, features_len = self.ssl_model.extract_feat_featurizer(x)
         x = self.LL(x_ssl_feat) #(bs,frame_number,feat_out_dim)
         
