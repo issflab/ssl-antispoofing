@@ -9,7 +9,7 @@ from sklearn.metrics import balanced_accuracy_score
 from tqdm import tqdm
 import json
 from s3prl import hub
-from data_utils_SSL import genSpoof_list_multidata, Multi_Dataset_train
+from data_utils_SSL import genSpoof_list_multidata, Multi_Dataset_train, parse_protocol
 from aasist_model import Model as aasist_model
 from sls_model import Model as sls_model
 # from xlsrmamba_model import Model as XLSRMambaModel
@@ -19,6 +19,7 @@ from utils import create_optimizer
 from evaluation import calculate_EER
 import time
 
+# --- NEW: import the generic, config-driven protocol parser
 __author__ = "Hashim Ali"
 __email__ = "alhashim@umich.edu"
 
@@ -55,7 +56,10 @@ def evaluate_accuracy(dev_loader, model, device):
     return avg_loss, balanced_acc
 
 
-def produce_evaluation(data_loader, model, device, save_path, trial_path):
+# --- UPDATED: make trial parsing config-driven while keeping behavior the same by default
+def produce_evaluation(data_loader, model, device, save_path, trial_path,
+                       # NEW: pass trial schema from config
+                       trial_delimiter=None, trial_cols_utt=0, trial_cols_src=3, trial_cols_label=4):
     model.eval()
 
     val_loss = 0.0
@@ -72,30 +76,49 @@ def produce_evaluation(data_loader, model, device, save_path, trial_path):
     with open(trial_path, "r") as f_trl:
         trial_lines.extend(f_trl.readlines())
     
-    for batch_x, utt_id, batch_y in tqdm(data_loader):
-        batch_size = batch_x.size(0)
-        num_total += batch_size
-        
-        batch_x = batch_x.to(device)
-        batch_y = batch_y.view(-1).type(torch.int64).to(device)
-        
-        batch_out = model(batch_x)
-        batch_score = (batch_out[:, 1]).data.cpu().numpy().ravel() 
-        batch_score = batch_score.tolist()
+    with torch.no_grad():
+        for batch_x, utt_id, batch_y in tqdm(data_loader):
+            batch_size = batch_x.size(0)
+            num_total += batch_size
+            
+            batch_x = batch_x.to(device)
+            batch_y = batch_y.view(-1).type(torch.int64).to(device)
+            
+            batch_out = model(batch_x)
+            batch_score = (batch_out[:, 1]).data.cpu().numpy().ravel() 
+            batch_score = batch_score.tolist()
 
-        batch_loss = criterion(batch_out, batch_y)
-        val_loss += (batch_loss.item() * batch_size)
-        
-        # Writing score to file
-        fname_list.extend(utt_id)
-        score_list.extend(batch_score)
-        key_list.extend(batch_y)
+            batch_loss = criterion(batch_out, batch_y)
+            val_loss += (batch_loss.item() * batch_size)
+            
+            # Writing score to file
+            fname_list.extend(utt_id)
+            score_list.extend(batch_score)
+            key_list.extend(batch_y)
     
     # print(len(fname_list), len(key_list), len(score_list), len(trial_lines))
     assert len(trial_lines) == len(fname_list) == len(score_list)
+
+    # NEW: normalize delimiter (treat " " as generic whitespace)
+    def _norm_delim(d):
+        if d is None:
+            return None
+        if isinstance(d, str) and d.strip() == "":
+            return None
+        if d == " ":
+            return None
+        return d
+
+    tdelim = _norm_delim(trial_delimiter)
+
     with open(save_path, "w") as fh:
         for fn, sco, trl in zip(fname_list, score_list, trial_lines):
-            utt_id, _, _, src, key = trl.strip().split(' ')
+            parts = trl.strip().split(tdelim) if tdelim is not None else trl.strip().split()
+            # --- UPDATED: read configured columns
+            try:
+                utt_id, src, key = parts[trial_cols_utt], parts[trial_cols_src], parts[trial_cols_label]
+            except IndexError:
+                raise ValueError(f"Trial line has too few columns for configured indices: `{trl.strip()}`")
 
             assert fn == utt_id
             fh.write("{} {} {} {}\n".format(utt_id, src, key, sco))
@@ -233,8 +256,22 @@ if __name__ == '__main__':
     train_proto = os.path.join(cfg.protocols_path, cfg.train_protocol)
     dev_proto = os.path.join(cfg.protocols_path, cfg.dev_protocol)
 
-    d_label_trn, file_train = genSpoof_list_multidata(train_proto, is_train=True)
-    d_label_dev, file_dev = genSpoof_list_multidata(dev_proto, is_train=False)
+    # --- UPDATED: use config-driven parser for BOTH train and dev
+    d_label_trn, file_train = parse_protocol(
+        train_proto,
+        delimiter=cfg.protocol_delimiter,
+        key_col=cfg.protocol_key_column,
+        label_col=cfg.protocol_label_column,
+        has_label=True
+    )
+    d_label_dev, file_dev = parse_protocol(
+        dev_proto,
+        delimiter=cfg.protocol_delimiter,
+        key_col=cfg.protocol_key_column,
+        label_col=cfg.protocol_label_column,
+        has_label=True
+    )
+    # ----------------------------------------------------------------
 
     # print("Train protocol:", getattr(cfg, "train_protocol_path", cfg.train_protocol))
     # print("Dev protocol:", getattr(cfg, "dev_protocol_path", cfg.dev_protocol))
@@ -283,7 +320,14 @@ if __name__ == '__main__':
         for epoch in range(27, args.num_epochs):
             train_loss = train_epoch(train_loader, model, optimizer, device)
 
-            val_loss = produce_evaluation(dev_loader, model, device, os.path.join(metric_path, "dev_score.txt"), dev_proto)
+            # --- UPDATED: pass trial schema from cfg
+            val_loss = produce_evaluation(
+                dev_loader, model, device, os.path.join(metric_path, "dev_score.txt"), dev_proto,
+                trial_delimiter=cfg.trial_delimiter,
+                trial_cols_utt=cfg.trial_cols_utt,
+                trial_cols_src=cfg.trial_cols_src,
+                trial_cols_label=cfg.trial_cols_label
+            )
 
             dev_eer = calculate_EER(cm_scores_file=os.path.join(metric_path, "dev_score.txt"))
 

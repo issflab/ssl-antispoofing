@@ -61,8 +61,8 @@ class Config:
     database_path: str = '/data/Data/'   # root that contains e.g. spoofceleb/flac/...
     protocols_path: str = '/data/Data/protocols/'  
 
-    train_protocol: str = 'SAFE_Challenge_only_english_train_protocol.txt'
-    dev_protocol: str = 'Safe_Challenge_only_english_dev_protocol.txt'
+    train_protocol: str = '/home/adupa/ssl-an/ssl-antispoofing/demo.txt'
+    dev_protocol: str = '/home/adupa/ssl-an/ssl-antispoofing/demo.txt'
 
     mode: Literal['train', 'eval'] = 'train'
 
@@ -72,6 +72,18 @@ class Config:
     cuda_device: str = 'cuda:0'
 
     pretrained_checkpoint: Optional[str] = None
+
+
+    # Use " " for whitespace-separated
+    # "," 
+    protocol_delimiter: Optional[str] = " "
+    protocol_key_column: int = 0
+    protocol_label_column: int = 4
+
+    trial_delimiter: Optional[str] = " "
+    trial_cols_utt: int = 0
+    trial_cols_src: int = 1
+    trial_cols_label: int = 2
 
     @property
     def train_protocol_path(self) -> str:
@@ -100,5 +112,16 @@ cfg.model_name = os.getenv('SSL_MODEL_NAME', cfg.model_name)
 env_ckpt = os.getenv('SSL_PRETRAINED_CHECKPOINT')
 if env_ckpt:
     cfg.pretrained_checkpoint = env_ckpt
+
+# --- NEW: env overrides for protocol/trial schema ---
+cfg.protocol_delimiter    = os.getenv('SSL_PROTOCOL_DELIMITER', cfg.protocol_delimiter)
+cfg.protocol_key_column   = int(os.getenv('SSL_PROTOCOL_KEY_COL',  cfg.protocol_key_column))
+cfg.protocol_label_column = int(os.getenv('SSL_PROTOCOL_LABEL_COL', cfg.protocol_label_column))
+
+cfg.trial_delimiter  = os.getenv('SSL_TRIAL_DELIMITER', cfg.trial_delimiter)
+cfg.trial_cols_utt   = int(os.getenv('SSL_TRIAL_UTT_COL',   cfg.trial_cols_utt))
+cfg.trial_cols_src   = int(os.getenv('SSL_TRIAL_SRC_COL',   cfg.trial_cols_src))
+cfg.trial_cols_label = int(os.getenv('SSL_TRIAL_LABEL_COL', cfg.trial_cols_label))
+# ----------------------------------------------------
 
 cfg.prepare_dirs()
