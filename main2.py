@@ -144,10 +144,9 @@ def train_epoch(train_loader, model, optimizer, device):
 
         batch_x = batch_x.to(device)
         batch_y = batch_y.view(-1).type(torch.int64).to(device)
-        start = time.time()
+        # start = time.time()
         batch_out = model(batch_x)
-        end = time.time()
-        print(end - start)
+        # end = time.time()
 
         batch_loss = criterion(batch_out, batch_y)
         running_loss += batch_loss.item() * batch_size
@@ -297,12 +296,22 @@ if __name__ == '__main__':
 
     # optimizer + scheduler
     # load external config if exists
-    with open("./AASIST.conf", "r") as f_json:
-        args_config = json.loads(f_json.read())
-    optim_config = args_config["optim_config"]
-    optim_config["epochs"] = args.num_epochs
-    optim_config["steps_per_epoch"] = len(train_loader)
-    optimizer, scheduler = create_optimizer(model.parameters(), optim_config)
+
+    # instantiate model based on config
+    if cfg.model_arch == 'aasist':
+        with open("./AASIST.conf", "r") as f_json:
+            args_config = json.loads(f_json.read())
+        optim_config = args_config["optim_config"]
+        optim_config["epochs"] = args.num_epochs
+        optim_config["steps_per_epoch"] = len(train_loader)
+        optimizer, scheduler = create_optimizer(model.parameters(), optim_config)
+    
+    elif cfg.model_arch == 'sls':
+        optimizer = torch.optim.Adam(model.parameters(), lr=args.lr,weight_decay=args.weight_decay)
+    
+    elif cfg.model_arch == 'xlsrmamba':
+        optimizer = torch.optim.Adam(model.parameters(), lr=args.lr,weight_decay=args.weight_decay)
+
     optimizer_swa = SWA(optimizer)
 
 
@@ -314,10 +323,10 @@ if __name__ == '__main__':
     # train vs eval
     if cfg.mode == 'train':
 
-        best_val_eer = 3.383
+        best_val_eer = 10
         n_swa_update = 0
 
-        for epoch in range(27, args.num_epochs):
+        for epoch in range(args.num_epochs):
             train_loss = train_epoch(train_loader, model, optimizer, device)
 
             # --- UPDATED: pass trial schema from cfg

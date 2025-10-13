@@ -34,7 +34,8 @@ class SSLModel(nn.Module):
         wavs_len = torch.LongTensor([waveform.size(1) for _ in range(waveform.size(0))])
         with torch.no_grad():
             all_hs, all_hs_len = self.model(waveform.to(self.device), wavs_len.to(self.device))
-        return torch.stack([t[0].permute(1,0,2) if isinstance(t, tuple) else t for t in all_hs[:self.n_layers]], dim=1)
+        # return torch.stack([t[0].permute(1,0,2) if isinstance(t, tuple) else t for t in all_hs[:self.n_layers]], dim=1)
+        return all_hs
     
     def _sample_indices(self, total_layers: int):
         k = min(self.n_layers, total_layers)
@@ -193,29 +194,10 @@ class Model(nn.Module):
 
 
     def forward(self, x):
-        # Debug shape
-        #print(f"[DEBUG] Input shape to Model.forward(): {x.shape}")
-        # Step 1: Ensure shape (B, T)
-        # if x.ndim == 3:
-        #     if x.shape[2] == 1:  # (B, T, 1)
-        #         x = x.squeeze(-1)
-        #     elif x.shape[0] == 1 and x.shape[1] > 1:  # (1, B, T) → (B, T)
-        #         x = x.squeeze(0)
-        #     elif x.shape[0] > 1 and x.shape[1] > 1:
-        #         raise ValueError(f"Ambiguous 3D input: {x.shape}")
-        # elif x.ndim == 2:
-        #     pass  # Already (B, T)
-        # elif x.ndim == 1:
-        #     x = x.unsqueeze(0)
-        # else:
-        #     raise ValueError(f"Unexpected input shape: {x.shape}")
+        
+        # [B, T, D] = [64, 600, 1024], list of layer outputs (each: batch × time × feature_dim)
+        layerResult = self.ssl_model.extract_feat(x)
 
-        #print(f"[DEBUG] Final input shape for S3PRL: {x.shape}")
-
-        # Step 2: Feature extraction
-        # layer_embeddings = self.ssl_extractor.extract_feat_from_waveform(x, aggregate_emb=False)
-        # x_ssl_feat, layerResult = self.ssl_model.extract_feat(x.squeeze(-1)) #layerresult = [(x,z),24个] x(201,1,1024) z(1,201,201)
-        layerResult = self.ssl_model.extract_feat(x) #layerresult = [(x,z),24个] x(201,1,1024) z(1,201,201)
 
         # Step 3: Attention over layers
         y0, fullfeature = getAttenF(layerResult)
