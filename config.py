@@ -1,7 +1,7 @@
 """
 config.py
 ---------
-Configuration management for ASD_SUPERB.
+Configuration management for spoof_SUPERB.
 
 This file defines the Config dataclass, which centralizes all configuration options
 for model architecture, dataset selection, file paths, training/evaluation modes, and device settings.
@@ -53,37 +53,40 @@ import os
 @dataclass
 class Config:
     #'aasist', 'sls', or 'xlsrmamba'
-    model_arch: Literal['aasist', 'sls', 'xlsrmamba'] = 'aasist'
+    model_arch: Literal['aasist', 'sls', 'xlsrmamba'] = 'sls'
 
     # Dataset name
-    dataset: str = 'Codec_FF_ITW_Pod_mlaad_spoofceleb'
+    dataset: str = 'ASV19'
 
     database_path: str = '/data/Data/'   # root that contains e.g. spoofceleb/flac/...
     protocols_path: str = '/data/Data/protocols/'  
 
-    train_protocol: str = '/home/adupa/ssl-an/ssl-antispoofing/demo.txt'
-    dev_protocol: str = '/home/adupa/ssl-an/ssl-antispoofing/demo.txt'
+    train_protocol: str = 'ASVspoof2019_train_protocol.txt'
+    dev_protocol: str = 'ASVspoof2019_dev_protocol.txt'
 
     mode: Literal['train', 'eval'] = 'train'
 
-    save_dir: str = '/data/ssl_anti_spoofing/eng_dataset_models/'
-    model_name: str = 'run1'
+    save_dir: str = '/data/ssl_anti_spoofing/models_test'
+    model_name: str = 'sls_ASV19'
 
-    cuda_device: str = 'cuda:0'
+    cuda_device: str = 'cuda:2'
 
     pretrained_checkpoint: Optional[str] = None
 
 
     # Use " " for whitespace-separated
     # "," 
+    # decide these based on the protocol file format.
     protocol_delimiter: Optional[str] = " "
     protocol_key_column: int = 0
+    protocol_src_column: int = 3
     protocol_label_column: int = 4
 
-    trial_delimiter: Optional[str] = " "
-    trial_cols_utt: int = 0
-    trial_cols_src: int = 1
-    trial_cols_label: int = 2
+    # we don't need trial file.
+    # trial_delimiter: Optional[str] = " "
+    # trial_cols_utt: int = 0
+    # trial_cols_src: int = 1
+    # trial_cols_label: int = 2
 
     @property
     def train_protocol_path(self) -> str:
@@ -107,6 +110,9 @@ cfg = Config()
 cfg.model_arch = os.getenv('SSL_MODEL_ARCH', cfg.model_arch)
 cfg.database_path = os.getenv('SSL_DATABASE_PATH', cfg.database_path)
 cfg.protocols_path = os.getenv('SSL_PROTOCOLS_PATH', cfg.protocols_path)
+cfg.train_protocol = os.getenv('SSL_TRAIN_PROTOCOL', cfg.train_protocol)
+cfg.dev_protocol = os.getenv('SSL_DEV_PROTOCOL', cfg.dev_protocol)
+cfg.cuda_device = os.getenv('CUDA_DEVICE', cfg.cuda_device)
 cfg.mode = os.getenv('SSL_MODE', cfg.mode)
 cfg.model_name = os.getenv('SSL_MODEL_NAME', cfg.model_name)
 env_ckpt = os.getenv('SSL_PRETRAINED_CHECKPOINT')
@@ -116,12 +122,13 @@ if env_ckpt:
 # --- NEW: env overrides for protocol/trial schema ---
 cfg.protocol_delimiter    = os.getenv('SSL_PROTOCOL_DELIMITER', cfg.protocol_delimiter)
 cfg.protocol_key_column   = int(os.getenv('SSL_PROTOCOL_KEY_COL',  cfg.protocol_key_column))
+cfg.protocol_label_column = int(os.getenv('SSL_PROTOCOL_SRC_COL', cfg.protocol_src_column))
 cfg.protocol_label_column = int(os.getenv('SSL_PROTOCOL_LABEL_COL', cfg.protocol_label_column))
 
-cfg.trial_delimiter  = os.getenv('SSL_TRIAL_DELIMITER', cfg.trial_delimiter)
-cfg.trial_cols_utt   = int(os.getenv('SSL_TRIAL_UTT_COL',   cfg.trial_cols_utt))
-cfg.trial_cols_src   = int(os.getenv('SSL_TRIAL_SRC_COL',   cfg.trial_cols_src))
-cfg.trial_cols_label = int(os.getenv('SSL_TRIAL_LABEL_COL', cfg.trial_cols_label))
+# cfg.trial_delimiter  = os.getenv('SSL_TRIAL_DELIMITER', cfg.trial_delimiter)
+# cfg.trial_cols_utt   = int(os.getenv('SSL_TRIAL_UTT_COL',   cfg.trial_cols_utt))
+# cfg.trial_cols_src   = int(os.getenv('SSL_TRIAL_SRC_COL',   cfg.trial_cols_src))
+# cfg.trial_cols_label = int(os.getenv('SSL_TRIAL_LABEL_COL', cfg.trial_cols_label))
 # ----------------------------------------------------
 
 cfg.prepare_dirs()

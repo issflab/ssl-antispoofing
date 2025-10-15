@@ -9,7 +9,7 @@ from sklearn.metrics import balanced_accuracy_score
 from tqdm import tqdm
 import json
 from s3prl import hub
-from data_utils_SSL import genSpoof_list_multidata, Multi_Dataset_train, parse_protocol
+from data_utils_SSL import genSpoof_list_multidata, Multi_Dataset_train, parse_protocol, _normalize_delim
 from aasist_model import Model as aasist_model
 from sls_model import Model as sls_model
 # from xlsrmamba_model import Model as XLSRMambaModel
@@ -99,17 +99,7 @@ def produce_evaluation(data_loader, model, device, save_path, trial_path,
     # print(len(fname_list), len(key_list), len(score_list), len(trial_lines))
     assert len(trial_lines) == len(fname_list) == len(score_list)
 
-    # NEW: normalize delimiter (treat " " as generic whitespace)
-    def _norm_delim(d):
-        if d is None:
-            return None
-        if isinstance(d, str) and d.strip() == "":
-            return None
-        if d == " ":
-            return None
-        return d
-
-    tdelim = _norm_delim(trial_delimiter)
+    tdelim = _normalize_delim(trial_delimiter)
 
     with open(save_path, "w") as fh:
         for fn, sco, trl in zip(fname_list, score_list, trial_lines):
@@ -332,10 +322,10 @@ if __name__ == '__main__':
             # --- UPDATED: pass trial schema from cfg
             val_loss = produce_evaluation(
                 dev_loader, model, device, os.path.join(metric_path, "dev_score.txt"), dev_proto,
-                trial_delimiter=cfg.trial_delimiter,
-                trial_cols_utt=cfg.trial_cols_utt,
-                trial_cols_src=cfg.trial_cols_src,
-                trial_cols_label=cfg.trial_cols_label
+                trial_delimiter=cfg.protocol_delimiter,
+                trial_cols_utt=cfg.protocol_key_column,
+                trial_cols_src=cfg.protocol_src_column,
+                trial_cols_label=cfg.protocol_label_column
             )
 
             dev_eer = calculate_EER(cm_scores_file=os.path.join(metric_path, "dev_score.txt"))
