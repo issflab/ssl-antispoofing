@@ -378,14 +378,27 @@ if __name__ == '__main__':
             optimizer_swa.bn_update(train_loader, model, device=device)
             torch.save(model.state_dict(), os.path.join(model_save_path, "swa.pth"))
 
+    
     elif cfg.mode == 'eval':
-        # fallback to best.pth if no explicit checkpoint
         if not cfg.pretrained_checkpoint:
             candidate = os.path.join(cfg.save_dir, cfg.model_name, 'best.pth')
             if os.path.isfile(candidate):
                 print('Loading best checkpoint from', candidate)
                 model.load_state_dict(torch.load(candidate, map_location=device))
+
         val_loss, val_balanced_acc = evaluate_accuracy(dev_loader, model, device)
         print(f'EVAL: val_loss={val_loss:.4f}, balanced_acc={val_balanced_acc:.4f}')
-    else:
-        raise ValueError("cfg.mode must be 'train' or 'eval'")
+
+        eval_score_path = os.path.join(metric_path, "eval_score.txt")
+        _ = produce_evaluation(
+            dev_loader, model, device, eval_score_path, dev_proto,
+            trial_delimiter=cfg.protocol_delimiter,
+            trial_cols_utt=cfg.protocol_key_column,
+            trial_cols_src=cfg.protocol_src_column,
+            trial_cols_label=cfg.protocol_label_column
+        )
+
+        eval_eer = calculate_EER(cm_scores_file=eval_score_path)
+        print("EVAL: score_file =", eval_score_path)
+        print(f"EVAL: eer={eval_eer:.4f}")
+
