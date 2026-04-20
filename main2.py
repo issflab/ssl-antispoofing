@@ -14,10 +14,11 @@ from aasist_model import Model as aasist_model
 from sls_model import Model as sls_model
 # from xlsrmamba_model import Model as XLSRMambaModel
 from core_scripts.startup_config import set_random_seed
-from config import cfg
+from config import cfg, reload_config_from_env
 from utils import create_optimizer
 from evaluation import calculate_EER
 import time
+from dotenv import load_dotenv
 
 # --- NEW: import the generic, config-driven protocol parser
 __author__ = "Hashim Ali"
@@ -162,6 +163,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=1234)
     parser.add_argument('--model_path', type=str, default=None, help='Pretrained checkpoint to load')
     parser.add_argument('--comment', type=str, default=None)
+    parser.add_argument('--env_file', type=str, default='example_configs/aasist_asv19.env')
     parser.add_argument('--cudnn-deterministic-toggle', action='store_false', default=True,
                     help='use cudnn-deterministic? (default true)')
     parser.add_argument('--cudnn-benchmark-toggle', action='store_true', default=False,
@@ -206,8 +208,17 @@ if __name__ == '__main__':
     # reproducibility
     set_random_seed(args.seed, args)
 
+    env_file = args.env_file
+    load_dotenv(env_file, override=True)
+    reload_config_from_env()
+
+    print(cfg.model_arch)
+    print(cfg.dataset_name)
+
+    print(cfg.database_path)
+
     #define model saving path
-    model_tag = 'model_{}_{}_{}_{}_{}_{}'.format(args.loss, args.num_epochs, args.batch_size, cfg.model_arch, cfg.dataset, args.ssl_model)
+    model_tag = 'model_{}_{}_{}_{}_{}_{}'.format(args.loss, args.num_epochs, args.batch_size, cfg.model_arch, cfg.dataset_name, args.ssl_model)
     
     if args.comment:
         model_tag = model_tag + '_{}'.format(args.comment)
@@ -309,7 +320,6 @@ if __name__ == '__main__':
     metric_path = os.path.join(model_tag, "metrics")
     os.makedirs(metric_path, exist_ok=True)
 
-    os.path.join(metric_path, "dev_score.txt")
     # train vs eval
     if cfg.mode == 'train':
 

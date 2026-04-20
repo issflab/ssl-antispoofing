@@ -26,7 +26,8 @@ class SSLModel(nn.Module):
         wavs_len = torch.LongTensor([waveform.size(1) for _ in range(waveform.size(0))])
         with torch.no_grad():
             all_hs, all_hs_len = self.model(waveform.to(self.device), wavs_len.to(self.device))
-        return torch.stack([t[0].permute(1,0,2) if isinstance(t, tuple) else t for t in all_hs[:self.n_layers]], dim=1)
+        # return torch.stack([t[0].permute(1,0,2) if isinstance(t, tuple) else t for t in all_hs[:self.n_layers]], dim=1)
+        return all_hs
     
     def _sample_indices(self, total_layers: int):
         k = min(self.n_layers, total_layers)
