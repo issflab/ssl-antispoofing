@@ -131,6 +131,10 @@ python main2.py --batch_size 14 --num_epochs 50 --ssl_model wavlm_large
 ```bash
 python main2.py  --ckpt output/models/your_model.pth
 ```
+Example: Model Evaluation Command
+```bash
+SSL_MODE=eval SSL_MODEL=aAsist SSL_LOAD_MODEL=/data/ssl_anti_spoofing/models_lekha/model_weighted_CCE_50_64_aasist_ASVSpoof2019_wav2vec2/swa.pth SSL_EVAL_DATASET=/data/Data/ASVSpoofData_2019/train/LA/ASVspoof2019_LA_eval/flac SSL_PROTOCOL_FILE=/data/Data/ASVSpoofData_2019/train/LA/ASVspoof2019_LA_eval/protocols/ASVspoof2019.LA.cm.eval.trl.txt SSL_PROTOCOL_LABEL_COL=4 SSL_PROTOCOL_SRC_COL=3 SSL_SAVE_DIR=./eval_outputs python main2.py 
+```
 
 ---
 
