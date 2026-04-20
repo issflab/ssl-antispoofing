@@ -49,27 +49,29 @@ Environment Variables:
 from dataclasses import dataclass
 from typing import Optional, Literal
 import os
+from dotenv import load_dotenv
 
 @dataclass
 class Config:
     #'aasist', 'sls', or 'xlsrmamba'
-    model_arch: Literal['aasist', 'sls', 'xlsrmamba'] = 'sls'
+    model_arch: Literal['aasist', 'sls', 'xlsrmamba'] = 'aasist'
 
     # Dataset name
-    dataset: str = 'ASV19'
+    dataset_name: str = 'ITW'
 
     database_path: str = '/data/Data/'   # root that contains e.g. spoofceleb/flac/...
-    protocols_path: str = '/data/Data/protocols/'  
+    protocols_path: str = '/data/Data/ds_wild/protocols/'  
 
     train_protocol: str = 'ASVspoof2019_train_protocol.txt'
     dev_protocol: str = 'ASVspoof2019_dev_protocol.txt'
+    eval_protocol: str = 'meta.csv'
 
-    mode: Literal['train', 'eval'] = 'train'
+    mode: Literal['train', 'eval'] = 'eval'
 
     save_dir: str = '/data/ssl_anti_spoofing/models_test'
     model_name: str = 'sls_ASV19'
 
-    cuda_device: str = 'cuda:2'
+    cuda_device: str = 'cuda:1'
 
     pretrained_checkpoint: Optional[str] = None
 
@@ -79,8 +81,8 @@ class Config:
     # decide these based on the protocol file format.
     protocol_delimiter: Optional[str] = " "
     protocol_key_column: int = 0
-    protocol_src_column: int = 3
-    protocol_label_column: int = 4
+    protocol_src_column: int = 1
+    protocol_label_column: int = 2
 
     # we don't need trial file.
     # trial_delimiter: Optional[str] = " "
@@ -107,28 +109,30 @@ class Config:
 
 cfg = Config()
 
-cfg.model_arch = os.getenv('SSL_MODEL_ARCH', cfg.model_arch)
-cfg.database_path = os.getenv('SSL_DATABASE_PATH', cfg.database_path)
-cfg.protocols_path = os.getenv('SSL_PROTOCOLS_PATH', cfg.protocols_path)
-cfg.train_protocol = os.getenv('SSL_TRAIN_PROTOCOL', cfg.train_protocol)
-cfg.dev_protocol = os.getenv('SSL_DEV_PROTOCOL', cfg.dev_protocol)
-cfg.cuda_device = os.getenv('CUDA_DEVICE', cfg.cuda_device)
-cfg.mode = os.getenv('SSL_MODE', cfg.mode)
-cfg.model_name = os.getenv('SSL_MODEL_NAME', cfg.model_name)
-env_ckpt = os.getenv('SSL_PRETRAINED_CHECKPOINT')
-if env_ckpt:
-    cfg.pretrained_checkpoint = env_ckpt
 
-# --- NEW: env overrides for protocol/trial schema ---
-cfg.protocol_delimiter    = os.getenv('SSL_PROTOCOL_DELIMITER', cfg.protocol_delimiter)
-cfg.protocol_key_column   = int(os.getenv('SSL_PROTOCOL_KEY_COL',  cfg.protocol_key_column))
-cfg.protocol_label_column = int(os.getenv('SSL_PROTOCOL_SRC_COL', cfg.protocol_src_column))
-cfg.protocol_label_column = int(os.getenv('SSL_PROTOCOL_LABEL_COL', cfg.protocol_label_column))
+def reload_config_from_env(env_file: Optional[str] = None):
+    if env_file:
+        load_dotenv(env_file, override=True)
 
-# cfg.trial_delimiter  = os.getenv('SSL_TRIAL_DELIMITER', cfg.trial_delimiter)
-# cfg.trial_cols_utt   = int(os.getenv('SSL_TRIAL_UTT_COL',   cfg.trial_cols_utt))
-# cfg.trial_cols_src   = int(os.getenv('SSL_TRIAL_SRC_COL',   cfg.trial_cols_src))
-# cfg.trial_cols_label = int(os.getenv('SSL_TRIAL_LABEL_COL', cfg.trial_cols_label))
-# ----------------------------------------------------
+    cfg.model_arch = os.getenv('SSL_MODEL_ARCH', cfg.model_arch)
+    cfg.database_path = os.getenv('SSL_DATABASE_PATH', cfg.database_path)
+    cfg.protocols_path = os.getenv('SSL_PROTOCOLS_PATH', cfg.protocols_path)
+    cfg.train_protocol = os.getenv('SSL_TRAIN_PROTOCOL', cfg.train_protocol)
+    cfg.dev_protocol = os.getenv('SSL_DEV_PROTOCOL', cfg.dev_protocol)
+    cfg.cuda_device = os.getenv('CUDA_DEVICE', cfg.cuda_device)
+    cfg.mode = os.getenv('SSL_MODE', cfg.mode)
+    cfg.model_name = os.getenv('SSL_MODEL_NAME', cfg.model_name)
+    cfg.dataset_name = os.getenv('SSL_DATASET_NAME', cfg.dataset_name)
+    env_ckpt = os.getenv('SSL_PRETRAINED_CHECKPOINT')
+    if env_ckpt:
+        cfg.pretrained_checkpoint = env_ckpt
 
-cfg.prepare_dirs()
+    cfg.protocol_delimiter    = os.getenv('SSL_PROTOCOL_DELIMITER', cfg.protocol_delimiter)
+    cfg.protocol_key_column   = int(os.getenv('SSL_PROTOCOL_KEY_COL',  cfg.protocol_key_column))
+    cfg.protocol_src_column   = int(os.getenv('SSL_PROTOCOL_SRC_COL', cfg.protocol_src_column))
+    cfg.protocol_label_column = int(os.getenv('SSL_PROTOCOL_LABEL_COL', cfg.protocol_label_column))
+
+    cfg.prepare_dirs()
+
+
+reload_config_from_env()
