@@ -1,4 +1,4 @@
-name: ssl_antispoofing
+name: XLSR_Mamba
 channels:
   - defaults
   - nvidia
