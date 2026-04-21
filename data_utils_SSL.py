@@ -158,7 +158,7 @@ def pad(x, max_len=64600):
 			
 
 class Dataset_ASVspoof2019_train(Dataset):
-    def __init__(self, args, list_IDs, labels, base_dir, algo):
+    def __init__(self, args, list_IDs, labels, base_dir, algo, max_len=64600):
         '''
         self.list_IDs	: list of strings (each string: utt key),
         self.labels      : dictionary (key: utt key, value: label integer)
@@ -169,7 +169,7 @@ class Dataset_ASVspoof2019_train(Dataset):
         self.base_dir = base_dir
         self.algo=algo
         self.args=args
-        self.cut=64600 # take ~4 sec audio (64600 samples)
+        self.cut=max_len
             
     def __len__(self):
         return len(self.list_IDs)
@@ -188,7 +188,7 @@ class Dataset_ASVspoof2019_train(Dataset):
     
 
 class Multi_Dataset_train(Dataset):
-    def __init__(self, args, list_IDs, labels, base_dir, algo):
+    def __init__(self, args, list_IDs, labels, base_dir, algo, max_len=192000):
         '''
         self.list_IDs	: list of strings (each string: utt key),
         self.labels      : dictionary (key: utt key, value: label integer)
@@ -199,8 +199,7 @@ class Multi_Dataset_train(Dataset):
         self.base_dir = base_dir
         self.algo=algo
         self.args=args
-        # self.cut=64600 # take ~4 sec audio (64600 samples)
-        self.cut=192000 # take 12 sec audio (64600 samples)
+        self.cut=max_len
             
     def __len__(self):
         return len(self.list_IDs)
@@ -228,14 +227,14 @@ class Multi_Dataset_train(Dataset):
             
             
 class Dataset_ASVspoof2021_eval(Dataset):
-    def __init__(self, list_IDs, base_dir):
+    def __init__(self, list_IDs, base_dir, max_len=64600):
         '''
         self.list_IDs	: list of strings (each string: utt key)
         '''
         
         self.list_IDs = list_IDs
         self.base_dir = base_dir
-        self.cut=64600 # take ~4 sec audio (64600 samples)
+        self.cut=max_len
         
     def __len__(self):
         return len(self.list_IDs)
