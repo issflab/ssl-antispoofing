@@ -7,79 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
-from s3prl.nn import S3PRLUpstream, Featurizer
-
-
-
-class SSLModel(nn.Module):
-    def __init__(self, n_layerss, device, args):
-        super(SSLModel, self).__init__()
-        self.device = device
-        self.model_name = args.ssl_model
-        self.model = S3PRLUpstream(self.model_name).to(self.device)
-        self.featurizer = Featurizer(self.model).to(self.device)
-        self.n_layers=n_layerss
-        self.out_dim = self.featurizer.output_size
-
-    def extract_feat_featurizer(self, waveform):
-        waveform = waveform.squeeze(1)
-        wavs_len = torch.LongTensor([waveform.size(1) for _ in range(waveform.size(0))])
-        with torch.no_grad():
-            all_hs, all_hs_len = self.model(waveform.to(self.device), wavs_len.to(self.device))
-        hs, hs_len = self.featurizer(all_hs, all_hs_len)
-        return hs, hs_len
-    
-    def extract_feat(self, waveform):
-        waveform = waveform.squeeze(1)
-        wavs_len = torch.LongTensor([waveform.size(1) for _ in range(waveform.size(0))])
-        with torch.no_grad():
-            all_hs, all_hs_len = self.model(waveform.to(self.device), wavs_len.to(self.device))
-        # return torch.stack([t[0].permute(1,0,2) if isinstance(t, tuple) else t for t in all_hs[:self.n_layers]], dim=1)
-        return all_hs
-    
-    def _sample_indices(self, total_layers: int):
-        k = min(self.n_layers, total_layers)
-        if k == total_layers:
-            return list(range(total_layers))
-        step = (total_layers - 1) / (k - 1)
-        return [int(step * i) for i in range(k)]
-
-    def extract_feat_sample(self, waveform):
-        waveform = waveform.squeeze(1)
-        wavs_len = torch.LongTensor([waveform.size(1)] * waveform.size(0))
-        with torch.no_grad():
-            all_hs, _ = self.model(waveform.to(self.device), wavs_len.to(self.device))
-        # sample your indices
-        idxs = self._sample_indices(len(all_hs))
-        # print(idxs)
-        # pick & permute
-        feats = []
-        for i in idxs:
-            t = all_hs[i]
-            x = t[0].permute(1,0,2) if isinstance(t, tuple) else t
-            feats.append(x)
-        # result: (batch, chosen_layers, time, dim)
-        # print(torch.stack(feats, dim=1).shape)
-        return torch.stack(feats, dim=1)
-    
-    def extract_feat_1n(self, waveform):
-        # print(waveform.shape,wavs_len.shape)
-        waveform = waveform.squeeze(1)
-        wavs_len = torch.LongTensor([waveform.size(1) for _ in range(waveform.size(0))])
-        # print(waveform.shape,wavs_len.shape)
-        with torch.no_grad():
-            all_hs, all_hs_len = self.model(waveform.to(self.device), wavs_len.to(self.device))
-        return torch.stack([t[0].permute(1,0,2) if isinstance(t, tuple) else t for t in all_hs[1:self.n_layers + 1]], dim=1)
-
-    def freeze_feature_extraction(self):
-        """Freezes the feature extraction layers of the base SSL model."""
-        for param in self.model.feature_extractor.parameters():
-            param.requires_grad = False
-
-    def freeze_model(self):
-        for param in self.model.parameters():
-            param.requires_grad = False
-
+from anti_spoofing.frontends.ssl import SSLFrontend
 
 def getAttenF(layerResult):
     """
@@ -178,9 +106,19 @@ class Model(nn.Module):
         super().__init__()
         self.device = device
         self.args = args
+        backend_cfg = getattr(self.args, "backend_config", {}) or {}
+        ssl_layers = backend_cfg.get("ssl_layers", getattr(self.args, "frontend_layers", 24))
+        hidden_dim = backend_cfg.get("hidden_dim", 1024)
 
         # self.ssl_extractor = deep_learning("hubert", device=self.device)
-        self.ssl_model = SSLModel(24, device=self.device, args=self.args)
+        self.ssl_model = SSLFrontend(
+            n_layers=ssl_layers,
+            device=self.device,
+            model_name=self.args.ssl_model,
+            freeze_ssl=getattr(self.args, "freeze_ssl", True),
+            feature_mode=getattr(self.args, "frontend_feature_mode", "all_hidden_states"),
+            layer_index=getattr(self.args, "frontend_layer_index", -1),
+        )
 
         self.first_bn = nn.BatchNorm2d(num_features=1)
         self.selu = nn.SELU(inplace=True)
@@ -188,7 +126,8 @@ class Model(nn.Module):
         self.sig = nn.Sigmoid()
         # self.fc1 = nn.Linear(17152, 1024)
         self.fc1 = None  # will initialize during first forward
-        self.fc3 = nn.Linear(1024,2)
+        self.hidden_dim = hidden_dim
+        self.fc3 = nn.Linear(self.hidden_dim,2)
         self.logsoftmax = nn.LogSoftmax(dim=1)
 
 
@@ -196,7 +135,7 @@ class Model(nn.Module):
     def forward(self, x):
         
         # [B, T, D] = [64, 600, 1024], list of layer outputs (each: batch × time × feature_dim)
-        layerResult = self.ssl_model.extract_feat(x)
+        layerResult = self.ssl_model.extract_hidden_states(x)
 
 
         # Step 3: Attention over layers
@@ -217,7 +156,7 @@ class Model(nn.Module):
         # 🔧 Lazy initialization here
         if self.fc1 is None:
             in_features = x.shape[1]
-            self.fc1 = nn.Linear(in_features, 1024).to(self.device)
+            self.fc1 = nn.Linear(in_features, self.hidden_dim).to(self.device)
 
         x = self.fc1(x)
         x = self.selu(x)
@@ -226,4 +165,3 @@ class Model(nn.Module):
         output = self.logsoftmax(x)
 
         return output
-
