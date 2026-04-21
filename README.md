@@ -6,7 +6,7 @@
 This repository implements a self‑supervised learning (SSL) based anti‑spoofing pipeline for audio. It has two main stages:
 
 * **Frontend (SSL feature extractors):** It can extract many ssl features from [s3prl library](https://github.com/s3prl/s3prl). Examples include wavlm\_large, wav2vec 2.0 xlsr (xls_r_300m), npc\_960hr, etc.
-* **Backend (Classifier models):** Four downstream models are implemented, including a Linear Head model, [AASIST](https://arxiv.org/pdf/2110.01200), [XLSR-SLS](https://openreview.net/pdf?id=acJMIXJg2u), [XLSR‑Mamba](https://github.com/swagshaw/XLSR-Mamba).
+* **Backend (Classifier models):** Downstream models include a Linear Head model, [AASIST](https://arxiv.org/pdf/2110.01200), and [XLSR-SLS](https://openreview.net/pdf?id=acJMIXJg2u).
 
 ---
 
@@ -21,7 +21,6 @@ This repository implements a self‑supervised learning (SSL) based anti‑spoof
 
   * `aasist`
   * `sls`
-  * `xlsrmamba`
 * Switch SSL extractor or model via config file or command‑line
 * Simple commands for training and evaluation -->
 ---
@@ -31,74 +30,55 @@ This repository implements a self‑supervised learning (SSL) based anti‑spoof
 
 ## ⚙️ Configuration
 
-You can configure downstream model, training and evaluation datasets via config file and SSL frontend model via command‑line.
+This project now uses a structured `.env` experiment config with five logical sections:
 
-This project uses a simple `.env`-based configuration system.  
-All key training, dataset, and protocol settings are read from environment variables, which allows you to easily switch between different experiments or datasets **without modifying code**.
+1. `experiment`
+2. `data`
+3. `model`
+4. `training`
+5. `evaluation`
 
-### 1) Create Your `.env` File
+The environment variables mirror this structure with `SECTION__FIELD` naming.  
+For example:
 
-Either use of the provided example config files (aasist_asv19.env, aasist_mlaad, or sls_asv19), or copy the template and edit it:
-
-```bash
-cp aasist_asv19.env sample.env
+```env
+EXPERIMENT__NAME=aasist_codec1
+DATA__DATABASE_PATH=/data/Data
+MODEL__BACKEND=aasist
+TRAINING__EPOCHS=50
+EVALUATION__CHECKPOINT=
 ```
 
-Open sample.env and fill in the fields for your dataset and experiment.
+### Main Experiment Config
 
-### 2) Required Variables
+The main `.env` file contains run-specific settings such as:
 
-| Variable              | Description                                    | Example                                |
-|-----------------------|------------------------------------------------|----------------------------------------|
-| `SSL_DATABASE_PATH`   | Absolute path to the dataset root              | `/data/ASV19`                          |
-| `SSL_PROTOCOLS_PATH`  | Path to folder containing protocol files       | `/data/ASV19/protocols`                |
-| `SSL_TRAIN_PROTOCOL`  | Training protocol filename                     | `ASVspoof2019_train_protocol.txt`      |
-| `SSL_DEV_PROTOCOL`    | Development protocol filename                  | `ASVspoof2019_dev_protocol.txt`        |
+- experiment name and output directory
+- dataset and protocol paths
+- frontend, backend, and loss selection
+- optimizer, learning rate, scheduler, and metric
+- evaluation checkpoint and score-file options
 
-You must set these before running training or evaluation.
+See:
 
-### 3) Protocol Format Variables
+- `example_configs/aasist_codecfake.env`
+- `example_configs/aasist_mlaad.env`
 
-Some datasets use different delimiters or column indices. Set these to match your protocol files:
+### Per-Model Config
 
-| Variable                    | Description                                              | Typical (ASV19) |
-|-----------------------------|----------------------------------------------------------|-----------------|
-| `SSL_PROTOCOL_DELIMITER`    | Delimiter in protocol files (" ", ",", or "\t")          | `" "`           |
-| `SSL_PROTOCOL_KEY_COL`      | Column index containing utterance IDs                    | `0`             |
-| `SSL_PROTOCOL_LABEL_COL`    | Column index containing labels (e.g., bona fide/spoof)   | `4`             |
+To keep the main experiment config from getting too cluttered, backend-specific defaults live in:
 
-If your format matches ASVspoof2019, the defaults in `aasist_asv19.env` should work.  
-For other datasets (e.g., MLAAD), update these accordingly.
+- `configs/models/aasist.json`
+- `configs/models/sls.json`
 
-### 4) Model & Run Settings
+These files are referenced from the main `.env` via:
 
-| Variable            | Description                                    | Example          |
-|---------------------|------------------------------------------------|------------------|
-| `SSL_MODEL_ARCH`    | Model architecture (aasist, sls, xlsrmamba)    | `aasist`         |
-| `SSL_MODE`          | Run mode (train or eval)                       | `train`          |
-| `SSL_MODEL_NAME`    | Run name (used for saving checkpoints/logs)    | `aasist_ASV19`   |
-| `CUDA_DEVICE`       | GPU device string                              | `cuda:0`         |
-
-### 5) Using the `.env` File
-
-Load your `.env` and run:
-
-```bash
-source sample.env
+```env
+MODEL__BACKEND_CONFIG=configs/models/aasist.json
 ```
 
-You can keep multiple `.env` files for different experiments and switch easily:
-
-```bash
-# AASIST on ASV19
-source configs/aasist_asv19.env
-
-# AASIST on MLAAD
-source configs/aasist_mlaad.env
-
-# SLS on ASV19
-source configs/sls_asv19.env
-```
+The model config can define backend-specific architecture defaults and training defaults for that backend.  
+The main `.env` remains the primary experiment-level configuration, and values in the `.env` override model defaults.
 
 <!-- **Or via CLI flags (model architecture is set in `config.py`):**
 
@@ -120,37 +100,71 @@ source configs/sls_asv19.env
 
 ## Training
 
-To train your model, run the following command,
+To train with an experiment config:
 
 ```bash
-python main2.py --batch_size 14 --num_epochs 50 --ssl_model wavlm_large
+python main2.py --env_file example_configs/aasist_codecfake.env
 ```
 
 ## Evaluation
 
 ```bash
-python main2.py  --ckpt output/models/your_model.pth
+python main2.py --env_file example_configs/aasist_codecfake.env
 ```
-Example: Model Evaluation Command
-```bash
-SSL_MODE=eval SSL_MODEL=aAsist SSL_LOAD_MODEL=/data/ssl_anti_spoofing/models_lekha/model_weighted_CCE_50_64_aasist_ASVSpoof2019_wav2vec2/swa.pth SSL_EVAL_DATASET=/data/Data/ASVSpoofData_2019/train/LA/ASVspoof2019_LA_eval/flac SSL_PROTOCOL_FILE=/data/Data/ASVSpoofData_2019/train/LA/ASVspoof2019_LA_eval/protocols/ASVspoof2019.LA.cm.eval.trl.txt SSL_PROTOCOL_LABEL_COL=4 SSL_PROTOCOL_SRC_COL=3 SSL_SAVE_DIR=./eval_outputs python main2.py 
-```
+
+Set `TRAINING__MODE=eval` and `EVALUATION__CHECKPOINT=/path/to/model.pth` in the `.env` file for evaluation runs.
 
 ---
 
 ## Switching Components
 
-* **Change SSL feature extractor:**
+Change the SSL frontend in the `.env`:
 
-  * In `config.py`: set `ssl_feature` to `wavlm_large`, `mae_ast_frame`, or `npc_960hr`.
-  * Or add `--ssl_feature <name>` on the CLI.
-* **Change classifier model:**
+```env
+MODEL__FRONTEND=wavlm_large
+```
 
-  * In `config.py`: set `model_arch` to `aasist`, `sls`, or `xlsrmamba`.
-  * Or add `--model_arch <name>` on the CLI.
+Change the backend and its model config:
+
+```env
+MODEL__BACKEND=aasist
+MODEL__BACKEND_CONFIG=configs/models/aasist.json
+```
+
+Change the loss:
+
+```env
+MODEL__LOSS=weighted_cce
+MODEL__FOCAL_GAMMA=2.0
+```
 
 ---
 
 ## Logs & Outputs
 
-* **Model checkpoints:** saved under the directory specified by `save_dir`.
+Outputs are saved under:
+
+```text
+<EXPERIMENT__OUTPUT_DIR>/<EXPERIMENT__NAME>/
+```
+
+This run directory contains:
+
+- `checkpoints/`
+- `logs/`
+- `metrics/`
+
+## Extension Layout
+
+The repository now has a small modular layer under `anti_spoofing/`:
+
+* `anti_spoofing/models.py`: backend model registry
+* `anti_spoofing/losses.py`: pluggable loss registry
+* `anti_spoofing/data.py`: dataset/protocol builders
+* `anti_spoofing/optim.py`: optimizer selection
+* `anti_spoofing/engine.py`: reusable train/eval loops
+* `anti_spoofing/frontends/`: SSL frontend implementations
+* `anti_spoofing/backends/`: backend classifier implementations
+
+To add a new backend model, implement the model and register it in `anti_spoofing/models.py`.
+To add a new loss, implement it and register it in `anti_spoofing/losses.py`.
